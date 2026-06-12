@@ -1,3 +1,4 @@
+import { convertFileSrc } from '@tauri-apps/api/core'
 import type { PluginMeta, ToolDefinition } from '../../store/appStore'
 
 type PluginShellProps = {
@@ -7,6 +8,7 @@ type PluginShellProps = {
 
 export function PluginShell({ activePlugin, tools }: PluginShellProps) {
   const pluginTools = tools.filter((tool) => tool.pluginId === activePlugin?.id)
+  const pluginEntryUrl = activePlugin?.entryPath ? convertFileSrc(activePlugin.entryPath) : null
 
   if (!activePlugin) {
     return (
@@ -28,11 +30,14 @@ export function PluginShell({ activePlugin, tools }: PluginShellProps) {
           <span className="statusPill">v{activePlugin.version}</span>
         </div>
         <div className="frameBody">
-          <h2>Plugin WebView mount point</h2>
-          <p>
-            The host owns lifecycle, permissions, and navigation. The plugin frontend will render
-            here after installation and manifest validation.
-          </p>
+          {pluginEntryUrl ? (
+            <iframe className="pluginWebview" src={pluginEntryUrl} title={activePlugin.name} />
+          ) : (
+            <div>
+              <h2>Plugin UI not found</h2>
+              <p>This plugin is installed, but its package does not include an index.html entry.</p>
+            </div>
+          )}
         </div>
       </article>
 

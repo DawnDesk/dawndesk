@@ -19,6 +19,14 @@ export async function listPlugins() {
   return callHost<PluginMeta[]>('plugin_list')
 }
 
+export async function installPlugin(id: string, url: string, checksum: string) {
+  return callHost<void>('plugin_install', { id, url, checksum })
+}
+
+export async function uninstallPlugin(id: string, keepData = false) {
+  return callHost<void>('plugin_uninstall', { id, keepData })
+}
+
 export async function getTools() {
   return callHost<ToolDefinition[]>('ai_get_tools')
 }

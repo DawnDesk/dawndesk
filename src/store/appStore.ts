@@ -9,6 +9,41 @@ export type PluginMeta = {
   installedAt: string
   category?: string
   icon?: string
+  entryPath?: string
+}
+
+export type RegistryRelease = {
+  url: string
+  checksum: string
+}
+
+export type RegistryPlugin = {
+  id: string
+  name: string
+  description: string
+  author?: string
+  repository?: string
+  icon?: string
+  category?: string
+  tags?: string[]
+  latestVersion: string
+  minHostVersion?: string
+  verified?: boolean
+  releases: Record<string, RegistryRelease>
+}
+
+export type PluginRegistry = {
+  schemaVersion: number
+  updatedAt: string
+  plugins: RegistryPlugin[]
+}
+
+export type PluginDownloadProgress = {
+  pluginId: string
+  progress: number
+  receivedBytes: number
+  totalBytes?: number | null
+  status: string
 }
 
 export type ToolDefinition = {
@@ -20,8 +55,14 @@ export type ToolDefinition = {
 
 export type AppConfig = {
   dataRoot: string
-  aiProvider: 'anthropic' | 'openai'
+  aiProvider: 'anthropic' | 'ollamaCloud' | 'openai'
   apiKeyConfigured: boolean
+  apiKeys: {
+    anthropic: string
+    ollamaCloud: string
+    openai: string
+  }
+  aiModel: string
   theme: 'light' | 'dark' | 'system'
   registryUrl: string
 }
@@ -36,20 +77,11 @@ export const fallbackPlugins: PluginMeta[] = [
   {
     id: 'notes',
     name: 'Notes',
-    version: '1.0.0',
-    description: 'Clean, fast note-taking with AI writing assistance.',
-    enabled: true,
-    installedAt: 'Not installed locally',
-    category: 'productivity',
-  },
-  {
-    id: 'photo-editor',
-    name: 'Photo Editor',
-    version: '1.0.0',
-    description: 'Image editing plugin slot ready for installation.',
+    version: '0.1.0',
+    description: 'Clean, fast note-taking with Markdown support and AI writing assistance.',
     enabled: false,
     installedAt: 'Available in registry',
-    category: 'media',
+    category: 'productivity',
   },
 ]
 
@@ -57,8 +89,14 @@ export const fallbackConfig: AppConfig = {
   dataRoot: 'Default application data directory',
   aiProvider: 'openai',
   apiKeyConfigured: false,
+  apiKeys: {
+    anthropic: '',
+    ollamaCloud: '',
+    openai: '',
+  },
+  aiModel: 'gpt-4.1-mini',
   theme: 'system',
-  registryUrl: 'https://github.com/dawndesk/registry',
+  registryUrl: 'https://raw.githubusercontent.com/DawnDesk/registry/main/index.json',
 }
 
 export const initialMessages: ChatMessage[] = [

@@ -5,17 +5,34 @@ use std::{env, fs, path::PathBuf};
 #[serde(rename_all = "camelCase")]
 pub struct AppConfig {
     pub data_root: String,
+    #[serde(default = "default_ai_provider")]
     pub ai_provider: AiProvider,
+    #[serde(default)]
     pub api_key_configured: bool,
+    #[serde(default)]
+    pub api_keys: AiApiKeys,
+    #[serde(default = "default_ai_model")]
+    pub ai_model: String,
+    #[serde(default)]
     pub theme: Theme,
+    #[serde(default = "default_registry_url")]
     pub registry_url: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
-#[serde(rename_all = "lowercase")]
+#[serde(rename_all = "camelCase")]
 pub enum AiProvider {
     Anthropic,
+    OllamaCloud,
     Openai,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct AiApiKeys {
+    pub anthropic: String,
+    pub ollama_cloud: String,
+    pub openai: String,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -32,9 +49,17 @@ impl Default for AppConfig {
             data_root: default_data_root().to_string_lossy().to_string(),
             ai_provider: AiProvider::Openai,
             api_key_configured: false,
+            api_keys: AiApiKeys::default(),
+            ai_model: default_ai_model(),
             theme: Theme::System,
-            registry_url: "https://github.com/dawndesk/registry".to_string(),
+            registry_url: default_registry_url(),
         }
+    }
+}
+
+impl Default for Theme {
+    fn default() -> Self {
+        Self::System
     }
 }
 
@@ -77,4 +102,16 @@ fn default_data_root() -> PathBuf {
 
 fn config_path(config: &AppConfig) -> PathBuf {
     PathBuf::from(&config.data_root).join("config.json")
+}
+
+fn default_ai_provider() -> AiProvider {
+    AiProvider::Openai
+}
+
+fn default_ai_model() -> String {
+    "gpt-4.1-mini".to_string()
+}
+
+fn default_registry_url() -> String {
+    "https://raw.githubusercontent.com/DawnDesk/registry/main/index.json".to_string()
 }

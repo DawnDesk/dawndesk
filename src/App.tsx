@@ -1,10 +1,19 @@
 import { useEffect, useMemo, useState } from 'react'
+import { listen } from '@tauri-apps/api/event'
 import { AIPanel } from './core/AIPanel/AIPanel'
 import { PluginShell } from './core/PluginShell/PluginShell'
 import { PluginStore } from './core/PluginStore/PluginStore'
 import { Settings } from './core/Settings/Settings'
 import { Sidebar } from './core/Sidebar/Sidebar'
-import { getSettings, getTools, listPlugins, saveSettings, sendAIMessage } from './ipc/host'
+import {
+  getSettings,
+  getTools,
+  installPlugin,
+  listPlugins,
+  saveSettings,
+  sendAIMessage,
+  uninstallPlugin,
+} from './ipc/host'
 import {
   fallbackConfig,
   fallbackPlugins,
@@ -12,46 +21,61 @@ import {
   type AppConfig,
   type ChatMessage,
   type PluginMeta,
+  type PluginRegistry,
+  type PluginDownloadProgress,
+  type RegistryPlugin,
+  type RegistryRelease,
   type ToolDefinition,
   type View,
 } from './store/appStore'
 import './App.css'
 
+const registryUrls = [
+  'https://raw.githubusercontent.com/DawnDesk/registry/main/index.json',
+  'https://cdn.jsdelivr.net/gh/DawnDesk/registry@main/index.json',
+]
+
 function App() {
   const [view, setView] = useState<View>('workspace')
   const [plugins, setPlugins] = useState<PluginMeta[]>([])
+  const [registryPlugins, setRegistryPlugins] = useState<RegistryPlugin[]>([])
   const [activePluginId, setActivePluginId] = useState<string | null>(null)
   const [tools, setTools] = useState<ToolDefinition[]>([])
   const [config, setConfig] = useState<AppConfig>(fallbackConfig)
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages)
   const [draft, setDraft] = useState('')
   const [status, setStatus] = useState('Loading host state')
+  const [busyPluginId, setBusyPluginId] = useState<string | null>(null)
+  const [downloadProgress, setDownloadProgress] = useState<Record<string, PluginDownloadProgress>>(
+    {},
+  )
 
   useEffect(() => {
     let alive = true
 
     async function load() {
-      const [pluginResult, configResult, toolsResult] = await Promise.allSettled([
+      const [pluginResult, configResult, toolsResult, registryResult] = await Promise.allSettled([
         listPlugins(),
         getSettings(),
         getTools(),
+        fetchRegistry(),
       ])
 
       if (!alive) return
 
-      const loadedPlugins =
-        pluginResult.status === 'fulfilled' && pluginResult.value.length > 0
-          ? pluginResult.value
-          : fallbackPlugins
+      const loadedPlugins = pluginResult.status === 'fulfilled' ? pluginResult.value : []
 
       setPlugins(loadedPlugins)
       setActivePluginId(loadedPlugins[0]?.id ?? null)
       setConfig(configResult.status === 'fulfilled' ? configResult.value : fallbackConfig)
       setTools(toolsResult.status === 'fulfilled' ? toolsResult.value : [])
+      setRegistryPlugins(
+        registryResult.status === 'fulfilled' ? registryResult.value.plugins : fallbackRegistry(),
+      )
       setStatus(
-        pluginResult.status === 'fulfilled'
-          ? 'Host state loaded'
-          : 'Running with frontend fallback data',
+        registryResult.status === 'fulfilled'
+          ? 'Plugin registry loaded'
+          : 'Registry unavailable, showing cached defaults',
       )
     }
 
@@ -59,6 +83,27 @@ function App() {
 
     return () => {
       alive = false
+    }
+  }, [])
+
+  useEffect(() => {
+    let unlisten: (() => void) | null = null
+
+    listen<PluginDownloadProgress>('plugin_download_progress', (event) => {
+      setDownloadProgress((current) => ({
+        ...current,
+        [event.payload.pluginId]: event.payload,
+      }))
+    })
+      .then((handler) => {
+        unlisten = handler
+      })
+      .catch(() => {
+        unlisten = null
+      })
+
+    return () => {
+      unlisten?.()
     }
   }, [])
 
@@ -121,6 +166,63 @@ function App() {
     }
   }
 
+  async function refreshInstalledPlugins(nextActiveId?: string | null) {
+    const [pluginResult, toolsResult] = await Promise.allSettled([listPlugins(), getTools()])
+    const loadedPlugins = pluginResult.status === 'fulfilled' ? pluginResult.value : []
+
+    setPlugins(loadedPlugins)
+    setTools(toolsResult.status === 'fulfilled' ? toolsResult.value : [])
+
+    if (nextActiveId !== undefined) {
+      setActivePluginId(nextActiveId)
+      return
+    }
+
+    setActivePluginId((current) => {
+      if (current && loadedPlugins.some((plugin) => plugin.id === current)) return current
+      return loadedPlugins[0]?.id ?? null
+    })
+  }
+
+  async function installFromRegistry(plugin: RegistryPlugin, release: RegistryRelease) {
+    setBusyPluginId(plugin.id)
+    setStatus(`Downloading ${plugin.name}`)
+
+    try {
+      await installPlugin(plugin.id, release.url, release.checksum)
+      await refreshInstalledPlugins(plugin.id)
+      setView('workspace')
+      setStatus(`${plugin.name} installed`)
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : `Failed to install ${plugin.name}`)
+    } finally {
+      setBusyPluginId(null)
+      setTimeout(() => {
+        setDownloadProgress((current) => {
+          const next = { ...current }
+          delete next[plugin.id]
+          return next
+        })
+      }, 1200)
+    }
+  }
+
+  async function deletePlugin(id: string) {
+    const plugin = plugins.find((item) => item.id === id)
+    setBusyPluginId(id)
+    setStatus(`Deleting ${plugin?.name ?? id}`)
+
+    try {
+      await uninstallPlugin(id, false)
+      await refreshInstalledPlugins(activePluginId === id ? null : undefined)
+      setStatus(`${plugin?.name ?? id} deleted`)
+    } catch (error) {
+      setStatus(error instanceof Error ? error.message : `Failed to delete ${plugin?.name ?? id}`)
+    } finally {
+      setBusyPluginId(null)
+    }
+  }
+
   return (
     <main className="appShell">
       <Sidebar
@@ -139,12 +241,26 @@ function App() {
           </div>
           <div className="topbarActions">
             <span className="statusPill">{config.aiProvider}</span>
+            <span className="statusPill">{config.aiModel}</span>
             <span className="statusPill">{config.theme}</span>
           </div>
         </header>
 
         {view === 'workspace' && <PluginShell activePlugin={activePlugin} tools={tools} />}
-        {view === 'store' && <PluginStore plugins={plugins} />}
+        {view === 'store' && (
+          <PluginStore
+            busyPluginId={busyPluginId}
+            installedPlugins={plugins}
+            onDelete={deletePlugin}
+            onInstall={installFromRegistry}
+            onOpen={(id) => {
+              setActivePluginId(id)
+              setView('workspace')
+            }}
+            progressByPluginId={downloadProgress}
+            registryPlugins={registryPlugins}
+          />
+        )}
         {view === 'ai' && (
           <AIPanel
             draft={draft}
@@ -158,6 +274,33 @@ function App() {
       </section>
     </main>
   )
+}
+
+async function fetchRegistry(): Promise<PluginRegistry> {
+  let lastError: unknown
+
+  for (const url of registryUrls) {
+    try {
+      const response = await fetch(url)
+      if (!response.ok) throw new Error(`Registry returned ${response.status}`)
+      return (await response.json()) as PluginRegistry
+    } catch (error) {
+      lastError = error
+    }
+  }
+
+  throw lastError
+}
+
+function fallbackRegistry(): RegistryPlugin[] {
+  return fallbackPlugins.map((plugin) => ({
+    id: plugin.id,
+    name: plugin.name,
+    description: plugin.description,
+    category: plugin.category,
+    latestVersion: plugin.version,
+    releases: {},
+  }))
 }
 
 function pageTitle(view: View, activePlugin: PluginMeta | null) {
