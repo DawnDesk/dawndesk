@@ -1,122 +1,170 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
+import { useEffect, useMemo, useState } from 'react'
+import { AIPanel } from './core/AIPanel/AIPanel'
+import { PluginShell } from './core/PluginShell/PluginShell'
+import { PluginStore } from './core/PluginStore/PluginStore'
+import { Settings } from './core/Settings/Settings'
+import { Sidebar } from './core/Sidebar/Sidebar'
+import { getSettings, getTools, listPlugins, saveSettings, sendAIMessage } from './ipc/host'
+import {
+  fallbackConfig,
+  fallbackPlugins,
+  initialMessages,
+  type AppConfig,
+  type ChatMessage,
+  type PluginMeta,
+  type ToolDefinition,
+  type View,
+} from './store/appStore'
 import './App.css'
 
 function App() {
-  const [count, setCount] = useState(0)
+  const [view, setView] = useState<View>('workspace')
+  const [plugins, setPlugins] = useState<PluginMeta[]>([])
+  const [activePluginId, setActivePluginId] = useState<string | null>(null)
+  const [tools, setTools] = useState<ToolDefinition[]>([])
+  const [config, setConfig] = useState<AppConfig>(fallbackConfig)
+  const [messages, setMessages] = useState<ChatMessage[]>(initialMessages)
+  const [draft, setDraft] = useState('')
+  const [status, setStatus] = useState('Loading host state')
+
+  useEffect(() => {
+    let alive = true
+
+    async function load() {
+      const [pluginResult, configResult, toolsResult] = await Promise.allSettled([
+        listPlugins(),
+        getSettings(),
+        getTools(),
+      ])
+
+      if (!alive) return
+
+      const loadedPlugins =
+        pluginResult.status === 'fulfilled' && pluginResult.value.length > 0
+          ? pluginResult.value
+          : fallbackPlugins
+
+      setPlugins(loadedPlugins)
+      setActivePluginId(loadedPlugins[0]?.id ?? null)
+      setConfig(configResult.status === 'fulfilled' ? configResult.value : fallbackConfig)
+      setTools(toolsResult.status === 'fulfilled' ? toolsResult.value : [])
+      setStatus(
+        pluginResult.status === 'fulfilled'
+          ? 'Host state loaded'
+          : 'Running with frontend fallback data',
+      )
+    }
+
+    load()
+
+    return () => {
+      alive = false
+    }
+  }, [])
+
+  const activePlugin = useMemo(
+    () => plugins.find((plugin) => plugin.id === activePluginId) ?? null,
+    [activePluginId, plugins],
+  )
+
+  async function sendMessage() {
+    const prompt = draft.trim()
+    if (!prompt) return
+
+    const userMessage: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: 'user',
+      content: prompt,
+    }
+
+    setMessages((current) => [...current, userMessage])
+    setDraft('')
+    setStatus('Generating AI response')
+
+    try {
+      const response = await sendAIMessage(
+        [...messages, userMessage].map(({ role, content }) => ({ role, content })),
+      )
+
+      setMessages((current) => [
+        ...current,
+        {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content: response,
+        },
+      ])
+      setStatus('AI response complete')
+    } catch {
+      setMessages((current) => [
+        ...current,
+        {
+          id: crypto.randomUUID(),
+          role: 'assistant',
+          content:
+            'AI provider wiring is available, but no configured provider responded yet. Add an API key in Settings when provider integration is enabled.',
+        },
+      ])
+      setStatus('AI response used local fallback')
+    }
+  }
+
+  async function saveConfig(nextConfig: AppConfig) {
+    setConfig(nextConfig)
+    setStatus('Saving settings')
+
+    try {
+      await saveSettings(nextConfig)
+      setStatus('Settings saved')
+    } catch {
+      setStatus('Settings changed locally')
+    }
+  }
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
+    <main className="appShell">
+      <Sidebar
+        activePluginId={activePluginId}
+        plugins={plugins}
+        setActivePluginId={setActivePluginId}
+        setView={setView}
+        view={view}
+      />
+
+      <section className="content">
+        <header className="topbar">
+          <div>
+            <p className="eyebrow">{status}</p>
+            <h1>{pageTitle(view, activePlugin)}</h1>
+          </div>
+          <div className="topbarActions">
+            <span className="statusPill">{config.aiProvider}</span>
+            <span className="statusPill">{config.theme}</span>
+          </div>
+        </header>
+
+        {view === 'workspace' && <PluginShell activePlugin={activePlugin} tools={tools} />}
+        {view === 'store' && <PluginStore plugins={plugins} />}
+        {view === 'ai' && (
+          <AIPanel
+            draft={draft}
+            messages={messages}
+            sendMessage={sendMessage}
+            setDraft={setDraft}
+            tools={tools}
+          />
+        )}
+        {view === 'settings' && <Settings config={config} saveConfig={saveConfig} />}
       </section>
-
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+    </main>
   )
+}
+
+function pageTitle(view: View, activePlugin: PluginMeta | null) {
+  if (view === 'workspace') return activePlugin?.name ?? 'Workspace'
+  if (view === 'store') return 'Plugin Store'
+  if (view === 'ai') return 'AI Panel'
+  return 'Settings'
 }
 
 export default App
