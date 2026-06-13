@@ -26,7 +26,7 @@
   "plugins": {
     "updater": {
       "active": true,
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDY4OTI0MDNDQUVGMDZEQkIKUldTN2JmQ3VQRUNTYUhqeGlSZUN6SGFWZEZYOTJuaXhJSTBQMG9iMDU4dndKN2l5Sk8ybnMrM1UK",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEU3NEY0QjBBMTdDOUIzRUYKUldUdnM4a1hDa3RQNTRHUXptTEduRHJVTHdlOUxRMXNUTXZzVklhVm9VSjVybEZVb0FMalBHQVIK",
       "endpoints": [
         "https://github.com/DawnDesk/dawndesk/releases/latest/download/latest.json"
       ]
