@@ -12,19 +12,3 @@
 
 !define MUI_HEADERIMAGE_RIGHT
 !define MUI_ABORTWARNING
-
-!macro NSIS_HOOK_POSTINSTALL
-  BrandingText "DawnDesk"
-!macroend
-
-!macro NSIS_HOOK_PREINSTALL
-  BrandingText "DawnDesk"
-!macroend
-
-!macro NSIS_HOOK_PREUNINSTALL
-  BrandingText "DawnDesk"
-!macroend
-
-!macro NSIS_HOOK_POSTUNINSTALL
-  BrandingText "DawnDesk"
-!macroend
