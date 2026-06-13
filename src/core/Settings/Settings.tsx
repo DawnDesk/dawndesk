@@ -1,4 +1,6 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import { relaunch } from '@tauri-apps/plugin-process'
+import { check } from '@tauri-apps/plugin-updater'
 import type { AppConfig } from '../../store/appStore'
 
 type SettingsProps = {
@@ -37,6 +39,8 @@ export function Settings({ config, saveConfig }: SettingsProps) {
   const selectedModels = modelOptions[config.aiProvider]
   const selectedApiKey = config.apiKeys[config.aiProvider]
   const selectedModel = selectedModels.includes(config.aiModel) ? config.aiModel : selectedModels[0]
+  const [updateStatus, setUpdateStatus] = useState('Ready to check for updates')
+  const [checkingUpdate, setCheckingUpdate] = useState(false)
 
   useEffect(() => {
     if (config.aiModel !== selectedModel) {
@@ -64,6 +68,52 @@ export function Settings({ config, saveConfig }: SettingsProps) {
       apiKeys,
       apiKeyConfigured: Boolean(value.trim()),
     })
+  }
+
+  async function checkForUpdate() {
+    setCheckingUpdate(true)
+    setUpdateStatus('Checking for updates')
+
+    try {
+      const update = await check()
+
+      if (!update) {
+        setUpdateStatus('DawnDesk is up to date')
+        return
+      }
+
+      setUpdateStatus(`Downloading DawnDesk ${update.version}`)
+      let downloaded = 0
+      let total = 0
+
+      await update.downloadAndInstall((event) => {
+        if (event.event === 'Started') {
+          total = event.data.contentLength ?? 0
+          setUpdateStatus(`Downloading DawnDesk ${update.version}`)
+        }
+
+        if (event.event === 'Progress') {
+          downloaded += event.data.chunkLength
+          const progress = total > 0 ? Math.round((downloaded / total) * 100) : null
+          setUpdateStatus(
+            progress
+              ? `Downloading DawnDesk ${update.version} (${progress}%)`
+              : `Downloading DawnDesk ${update.version}`,
+          )
+        }
+
+        if (event.event === 'Finished') {
+          setUpdateStatus('Installing update')
+        }
+      })
+
+      setUpdateStatus('Update installed. Restarting DawnDesk')
+      await relaunch()
+    } catch (error) {
+      setUpdateStatus(error instanceof Error ? error.message : 'Update check failed')
+    } finally {
+      setCheckingUpdate(false)
+    }
   }
 
   return (
@@ -128,6 +178,20 @@ export function Settings({ config, saveConfig }: SettingsProps) {
           value={config.registryUrl}
         />
       </label>
+      <section className="settingsAction wide" aria-label="DawnDesk updates">
+        <div>
+          <span>App updates</span>
+          <p>{updateStatus}</p>
+        </div>
+        <button
+          className="primaryButton"
+          disabled={checkingUpdate}
+          type="button"
+          onClick={checkForUpdate}
+        >
+          {checkingUpdate ? 'Checking' : 'Check for updates'}
+        </button>
+      </section>
     </section>
   )
 }

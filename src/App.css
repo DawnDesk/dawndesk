@@ -392,6 +392,69 @@
   margin: 0;
 }
 
+.messageContent {
+  display: grid;
+  gap: var(--dd-space-2);
+}
+
+.messageContent h3 {
+  margin: var(--dd-space-1) 0 0;
+  color: var(--dd-text-primary);
+  font-size: 0.98rem;
+}
+
+.messageContent p,
+.messageContent ul,
+.messageContent ol {
+  margin: 0;
+}
+
+.messageContent ul,
+.messageContent ol {
+  display: grid;
+  gap: var(--dd-space-1);
+  padding-left: var(--dd-space-5);
+}
+
+.messageContent strong {
+  color: var(--dd-text-primary);
+}
+
+.messageContent code {
+  border: 1px solid var(--dd-border);
+  border-radius: var(--dd-radius-sm);
+  background: var(--dd-bg-elevated);
+  color: var(--dd-text-primary);
+  font-family: var(--dd-font-mono);
+  padding: 0 var(--dd-space-1);
+}
+
+.messageTableWrap {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+.messageTable {
+  width: 100%;
+  min-width: 520px;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+}
+
+.messageTable th,
+.messageTable td {
+  border: 1px solid var(--dd-border);
+  padding: var(--dd-space-2);
+  text-align: left;
+  vertical-align: top;
+}
+
+.messageTable th {
+  background: var(--dd-bg-elevated);
+  color: var(--dd-text-primary);
+  font-weight: 700;
+}
+
 .message.user {
   align-self: flex-end;
   border-color: var(--dd-accent);
@@ -440,6 +503,29 @@
 
 .field.wide {
   grid-column: 1 / -1;
+}
+
+.settingsAction {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--dd-space-4);
+  border-top: 1px solid var(--dd-border);
+  padding-top: var(--dd-space-4);
+}
+
+.settingsAction.wide {
+  grid-column: 1 / -1;
+}
+
+.settingsAction span {
+  color: var(--dd-text-primary);
+  font-weight: 700;
+}
+
+.settingsAction p {
+  margin: var(--dd-space-1) 0 0;
+  color: var(--dd-text-secondary);
 }
 
 @media (max-width: 900px) {

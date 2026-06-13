@@ -23,8 +23,18 @@
       "csp": null
     }
   },
+  "plugins": {
+    "updater": {
+      "active": true,
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDY4OTI0MDNDQUVGMDZEQkIKUldTN2JmQ3VQRUNTYUhqeGlSZUN6SGFWZEZYOTJuaXhJSTBQMG9iMDU4dndKN2l5Sk8ybnMrM1UK",
+      "endpoints": [
+        "https://github.com/DawnDesk/dawndesk/releases/latest/download/latest.json"
+      ]
+    }
+  },
   "bundle": {
     "active": true,
+    "createUpdaterArtifacts": true,
     "targets": "all",
     "icon": [
       "icons/32x32.png",
