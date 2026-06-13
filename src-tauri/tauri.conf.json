@@ -1,6 +1,6 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "dawndesk",
+  "productName": "DawnDesk",
   "version": "0.1.0",
   "identifier": "com.dawndesk.app",
   "build": {
@@ -43,6 +43,16 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
+    "windows": {
+      "nsis": {
+        "installerIcon": "icons/icon.ico",
+        "uninstallerIcon": "icons/icon.ico",
+        "headerImage": "installer/header.bmp",
+        "sidebarImage": "installer/sidebar.bmp",
+        "installerHooks": "installer/dawndesk-installer.nsh",
+        "installMode": "both"
+      }
+    },
     "android": {
       "debugApplicationIdSuffix": ".debug"
     }

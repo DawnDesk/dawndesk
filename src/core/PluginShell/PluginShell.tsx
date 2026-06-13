@@ -39,15 +39,34 @@ export function PluginShell({ activePlugin, tools }: PluginShellProps) {
 
   if (!activePlugin) {
     return (
-      <section className="emptyState">
-        <h2>No plugin selected</h2>
-        <p>Install and enable a plugin to mount its interface in the host shell.</p>
+      <section className="dashboard">
+        <DashboardHero />
+        <div className="dashboardStats">
+          <StatCard label="Project Workspaces" value="0" detail="Project spaces" />
+          <StatCard label="Finance Projects" value="0" detail="Finance workspaces" />
+          <StatCard label="Saved Prompts" value={tools.length.toString()} detail="Templates and tools" />
+          <StatCard label="Recent Operations" value="0" detail="Latest logged app actions" />
+        </div>
+        <section className="dashboardPanel emptyDashboard">
+          <h2>Open A Workspace</h2>
+          <p>Install and enable a plugin to mount its interface in the host shell.</p>
+        </section>
       </section>
     )
   }
 
   return (
-    <section className="workspaceGrid">
+    <section className="workspaceStack">
+      <section className="dashboard">
+        <DashboardHero />
+        <div className="dashboardStats">
+          <StatCard label="Active Plugin" value="1" detail={activePlugin.name} />
+          <StatCard label="AI Tools" value={pluginTools.length.toString()} detail="Registered tool actions" />
+          <StatCard label="Version" value={activePlugin.version} detail="Installed package" />
+          <StatCard label="Status" value={activePlugin.enabled ? 'On' : 'Off'} detail="Plugin availability" />
+        </div>
+      </section>
+      <section className="workspaceGrid">
       <article className="pluginFrame">
         <div className="frameToolbar">
           <div>
@@ -108,6 +127,29 @@ export function PluginShell({ activePlugin, tools }: PluginShellProps) {
           </ul>
         )}
       </aside>
+      </section>
     </section>
+  )
+}
+
+function DashboardHero() {
+  return (
+    <section className="dashboardHero">
+      <p className="dashboardKicker">Dawndesk</p>
+      <h1>DawnDesk Dashboard</h1>
+      <p>Jump into active work, check your connected workspaces, and review recent app activity from one useful place.</p>
+    </section>
+  )
+}
+
+function StatCard({ detail, label, value }: { detail: string; label: string; value: string }) {
+  return (
+    <article className="statCard">
+      <div>
+        <span>{label}</span>
+        <strong>{value}</strong>
+      </div>
+      <small>{detail}</small>
+    </article>
   )
 }

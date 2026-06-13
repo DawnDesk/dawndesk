@@ -9,9 +9,9 @@ type SidebarProps = {
 }
 
 const navItems: Array<{ label: string; view: View }> = [
-  { label: 'Workspace', view: 'workspace' },
+  { label: 'Dashboard', view: 'workspace' },
   { label: 'Plugin Store', view: 'store' },
-  { label: 'AI Panel', view: 'ai' },
+  { label: 'Prompts', view: 'ai' },
   { label: 'Settings', view: 'settings' },
 ]
 
@@ -27,8 +27,8 @@ export function Sidebar({
       <div className="brand">
         <span className="brandMark">D</span>
         <div>
-          <strong>DawnDesk</strong>
-          <span>Plugin host</span>
+          <strong>Workspace</strong>
+          <span>DawnDesk tools</span>
         </div>
       </div>
 

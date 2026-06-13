@@ -245,7 +245,7 @@ function App() {
   }
 
   return (
-    <main className="appShell">
+    <main className={`appShell theme-${config.theme}`}>
       <Sidebar
         activePluginId={activePluginId}
         plugins={plugins}
@@ -257,13 +257,11 @@ function App() {
       <section className="content">
         <header className="topbar">
           <div>
+            <strong className="topbarBrand">DawnDesk</strong>
             <p className="eyebrow">{status}</p>
-            <h1>{pageTitle(view, activePlugin)}</h1>
           </div>
           <div className="topbarActions">
-            <span className="statusPill">{config.aiProvider}</span>
-            <span className="statusPill">{config.aiModel}</span>
-            <span className="statusPill">{config.theme}</span>
+            <span className="themeToggle">{config.theme === 'dark' ? 'Light' : 'Dark'}</span>
           </div>
         </header>
 
@@ -323,13 +321,6 @@ function fallbackRegistry(): RegistryPlugin[] {
     latestVersion: plugin.version,
     releases: {},
   }))
-}
-
-function pageTitle(view: View, activePlugin: PluginMeta | null) {
-  if (view === 'workspace') return activePlugin?.name ?? 'Workspace'
-  if (view === 'store') return 'Plugin Store'
-  if (view === 'ai') return 'AI Panel'
-  return 'Settings'
 }
 
 function formatError(error: unknown, fallback: string) {
