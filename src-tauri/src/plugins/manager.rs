@@ -1,4 +1,7 @@
-use crate::{plugins::manifest::read_manifest, settings::config::AppConfig};
+use crate::{
+    plugins::manifest::read_manifest,
+    settings::config::{user_data_root, AppConfig},
+};
 use serde::Serialize;
 use serde_json::{json, Map, Value};
 use sha2::{Digest, Sha256};
@@ -34,7 +37,7 @@ pub struct PluginDownloadProgress {
 }
 
 pub fn list_plugins(config: &AppConfig) -> Result<Vec<PluginMeta>, String> {
-    let plugins_dir = PathBuf::from(&config.data_root).join("plugins");
+    let plugins_dir = user_data_root(config).join("plugins");
 
     if !plugins_dir.exists() {
         return Ok(Vec::new());
@@ -127,7 +130,7 @@ pub fn install_plugin(
     ));
     verify_checksum(id, &bytes, checksum)?;
 
-    let plugins_dir = PathBuf::from(&config.data_root).join("plugins");
+    let plugins_dir = user_data_root(config).join("plugins");
     fs::create_dir_all(&plugins_dir).map_err(|error| error.to_string())?;
 
     let install_dir = plugins_dir.join(id);
@@ -229,7 +232,7 @@ pub fn install_plugin(
 }
 
 pub fn uninstall_plugin(config: &AppConfig, id: &str, keep_data: bool) -> Result<(), String> {
-    let plugin_dir = PathBuf::from(&config.data_root).join("plugins").join(id);
+    let plugin_dir = user_data_root(config).join("plugins").join(id);
 
     if !plugin_dir.exists() {
         return Err(format!("Plugin '{id}' is not installed."));
@@ -276,7 +279,7 @@ pub fn delete_plugin_data(config: &AppConfig, plugin_id: &str, key: &str) -> Res
 }
 
 fn plugin_store_path(config: &AppConfig, plugin_id: &str) -> PathBuf {
-    PathBuf::from(&config.data_root)
+    user_data_root(config)
         .join("plugins")
         .join(plugin_id)
         .join("data.json")

@@ -5,6 +5,8 @@ use std::{env, fs, path::PathBuf};
 #[serde(rename_all = "camelCase")]
 pub struct AppConfig {
     pub data_root: String,
+    #[serde(default)]
+    pub active_user_id: Option<String>,
     #[serde(default = "default_ai_provider")]
     pub ai_provider: AiProvider,
     #[serde(default)]
@@ -47,6 +49,7 @@ impl Default for AppConfig {
     fn default() -> Self {
         Self {
             data_root: default_data_root().to_string_lossy().to_string(),
+            active_user_id: None,
             ai_provider: AiProvider::Openai,
             api_key_configured: false,
             api_keys: AiApiKeys::default(),
@@ -85,9 +88,36 @@ pub fn write_config(config: &AppConfig) -> Result<(), String> {
 }
 
 pub fn ensure_data_dirs(config: &AppConfig) -> Result<(), String> {
-    let root = PathBuf::from(&config.data_root);
+    let root = user_data_root(config);
     fs::create_dir_all(root.join("plugins")).map_err(|error| error.to_string())?;
     Ok(())
+}
+
+pub fn user_data_root(config: &AppConfig) -> PathBuf {
+    let root = PathBuf::from(&config.data_root);
+    let Some(user_id) = config
+        .active_user_id
+        .as_deref()
+        .map(sanitize_user_id)
+        .filter(|id| !id.is_empty())
+    else {
+        return root.join("users").join("local");
+    };
+
+    root.join("users").join(user_id)
+}
+
+pub fn sanitize_user_id(user_id: &str) -> String {
+    user_id
+        .chars()
+        .map(|character| {
+            if character.is_ascii_alphanumeric() || character == '-' || character == '_' {
+                character
+            } else {
+                '_'
+            }
+        })
+        .collect()
 }
 
 fn default_data_root() -> PathBuf {

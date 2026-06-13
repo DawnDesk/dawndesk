@@ -1,12 +1,24 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import { listen } from '@tauri-apps/api/event'
-import { AlertTriangle, CheckCircle2, Info, X, XCircle, type LucideIcon } from 'lucide-react'
+import { getCurrent, onOpenUrl, register } from '@tauri-apps/plugin-deep-link'
+import { openUrl } from '@tauri-apps/plugin-opener'
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Info,
+  LogOut,
+  X,
+  XCircle,
+  type LucideIcon,
+} from 'lucide-react'
 import { AIPanel } from './core/AIPanel/AIPanel'
 import { Dashboard } from './core/Dashboard/Dashboard'
 import { PluginShell } from './core/PluginShell/PluginShell'
 import { PluginStore } from './core/PluginStore/PluginStore'
 import { Settings } from './core/Settings/Settings'
+import { SignIn } from './core/SignIn/SignIn'
 import { Sidebar } from './core/Sidebar/Sidebar'
+import { isSupabaseConfigured, supabase, userDisplayName, type AuthState } from './auth/supabase'
 import {
   getSettings,
   getTools,
@@ -14,6 +26,7 @@ import {
   listPlugins,
   saveSettings,
   sendAIMessage,
+  setActiveUser,
   uninstallPlugin,
 } from './ipc/host'
 import {
@@ -35,6 +48,7 @@ import {
 import './App.css'
 
 const savedChatsStorageKey = 'dawndesk.savedChats'
+const authRedirectUrl = 'dawndesk://auth/callback'
 const registryUrls = [
   'https://raw.githubusercontent.com/DawnDesk/registry/main/index.json',
   'https://cdn.jsdelivr.net/gh/DawnDesk/registry@main/index.json',
@@ -64,13 +78,18 @@ const toastStyles: Record<ToastKind, string> = {
 }
 
 function App() {
+  const [auth, setAuth] = useState<AuthState>({
+    loading: true,
+    session: null,
+    user: null,
+  })
   const [view, setView] = useState<View>('dashboard')
   const [plugins, setPlugins] = useState<PluginMeta[]>([])
   const [registryPlugins, setRegistryPlugins] = useState<RegistryPlugin[]>([])
   const [activePluginId, setActivePluginId] = useState<string | null>(null)
   const [config, setConfig] = useState<AppConfig>(fallbackConfig)
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages)
-  const [savedChats, setSavedChats] = useState<SavedChat[]>(loadSavedChats)
+  const [savedChats, setSavedChats] = useState<SavedChat[]>([])
   const [activeChatId, setActiveChatId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
   const [isGenerating, setIsGenerating] = useState(false)
@@ -102,9 +121,89 @@ function App() {
   }, [showToast])
 
   useEffect(() => {
+    if (!supabase) {
+      setAuth({ loading: false, session: null, user: null })
+      return
+    }
+
+    let alive = true
+
+    supabase.auth.getSession().then(({ data }) => {
+      if (!alive) return
+      setAuth({
+        loading: false,
+        session: data.session,
+        user: data.session?.user ?? null,
+      })
+    })
+
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAuth({
+        loading: false,
+        session,
+        user: session?.user ?? null,
+      })
+    })
+
+    return () => {
+      alive = false
+      data.subscription.unsubscribe()
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!supabase) return
+
+    let unlisten: (() => void) | null = null
+
+    register('dawndesk').catch(() => undefined)
+
+    getCurrent()
+      .then((urls) => {
+        if (urls) void handleAuthDeepLinks(urls)
+      })
+      .catch(() => undefined)
+
+    onOpenUrl((urls) => {
+      void handleAuthDeepLinks(urls)
+    })
+      .then((handler) => {
+        unlisten = handler
+      })
+      .catch(() => undefined)
+
+    return () => {
+      unlisten?.()
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!auth.user?.id) {
+      setSavedChats([])
+      setActiveChatId(null)
+      setMessages(initialMessages)
+      return
+    }
+
+    setSavedChats(loadSavedChats(savedChatsKey(auth.user.id)))
+    setActiveChatId(null)
+    setMessages(initialMessages)
+  }, [auth.user?.id])
+
+  useEffect(() => {
+    if (auth.loading || !auth.user) return
+
     let alive = true
 
     async function load() {
+      await setActiveUser(auth.user?.id ?? null).catch((error) => {
+        setStatus(
+          'User data scope unavailable',
+          'warning',
+          formatError(error, 'The desktop host did not confirm the active user.'),
+        )
+      })
+
       const [pluginResult, configResult, registryResult, toolsResult] = await Promise.allSettled([
         listPlugins(),
         getSettings(),
@@ -147,7 +246,7 @@ function App() {
     return () => {
       alive = false
     }
-  }, [setStatus])
+  }, [auth.loading, auth.user, setStatus])
 
   useEffect(() => {
     let unlisten: (() => void) | null = null
@@ -172,8 +271,9 @@ function App() {
   }, [setStatus])
 
   useEffect(() => {
-    localStorage.setItem(savedChatsStorageKey, JSON.stringify(savedChats))
-  }, [savedChats])
+    if (!auth.user?.id) return
+    localStorage.setItem(savedChatsKey(auth.user.id), JSON.stringify(savedChats))
+  }, [auth.user?.id, savedChats])
 
   const activePlugin = useMemo(
     () => plugins.find((plugin) => plugin.id === activePluginId) ?? null,
@@ -464,9 +564,75 @@ function App() {
     }
   }
 
+  async function signInWithGoogle() {
+    if (!supabase) {
+      setStatus('Supabase is not configured', 'error', 'Add the Supabase URL and publishable key to the app environment.')
+      return
+    }
+
+    const { data, error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: getAuthRedirectUrl(),
+        skipBrowserRedirect: true,
+      },
+    })
+
+    if (error) {
+      setStatus('Google sign-in failed', 'error', error.message)
+      return
+    }
+
+    if (!data.url) {
+      setStatus('Google sign-in failed', 'error', 'Supabase did not return an OAuth URL.')
+      return
+    }
+
+    try {
+      await openUrl(data.url)
+    } catch {
+      window.location.href = data.url
+    }
+  }
+
+  async function signOut() {
+    if (!supabase) return
+
+    const { error } = await supabase.auth.signOut()
+    if (error) {
+      setStatus('Sign-out failed', 'error', error.message)
+      return
+    }
+
+    await setActiveUser(null).catch(() => undefined)
+    setPlugins([])
+    setRegistryPlugins([])
+    setAiTools([])
+    setActivePluginId(null)
+    setActiveChatId(null)
+    setSavedChats([])
+    setMessages(initialMessages)
+    setView('dashboard')
+    setStatus('Signed out', 'success')
+  }
+
+  if (auth.loading) {
+    return <LoadingScreen />
+  }
+
+  if (!auth.user) {
+    return (
+      <SignIn
+        isConfigured={isSupabaseConfigured}
+        isSigningIn={Boolean(auth.session)}
+        onSignIn={signInWithGoogle}
+      />
+    )
+  }
+
   return (
     <main
-      className={`theme-${config.theme} grid h-screen overflow-hidden grid-cols-[240px_minmax(0,1fr)] bg-[radial-gradient(circle_at_50%_0,var(--dd-bg-glow),transparent_34%),var(--dd-bg-base)] text-[var(--dd-text-primary)] max-[900px]:grid-cols-1`}
+      className={`theme-${config.theme} grid h-screen overflow-hidden grid-cols-[216px_minmax(0,1fr)] bg-[radial-gradient(circle_at_50%_0,var(--dd-bg-glow),transparent_34%),var(--dd-bg-base)] text-[var(--dd-text-primary)] max-[900px]:grid-cols-1`}
     >
       <Sidebar
         activePluginId={activePluginId}
@@ -477,6 +643,18 @@ function App() {
       />
 
       <section className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-[linear-gradient(180deg,var(--dd-bg-content),transparent_280px),var(--dd-bg-base)]">
+        <div className="absolute right-[var(--dd-space-5)] top-[var(--dd-space-4)] z-40 flex max-w-[min(420px,calc(100vw-var(--dd-space-8)))] items-center gap-[var(--dd-space-2)] rounded-[var(--dd-radius-md)] border border-[var(--dd-border-soft)] bg-[rgba(5,6,7,0.76)] px-[var(--dd-space-3)] py-[var(--dd-space-2)] text-[0.8rem] text-[var(--dd-text-secondary)] shadow-[var(--dd-shadow-sm)] backdrop-blur">
+          <span className="truncate">{userDisplayName(auth.user)}</span>
+          <button
+            aria-label="Sign out"
+            className="grid size-7 shrink-0 place-items-center rounded-[var(--dd-radius-sm)] text-[var(--dd-text-muted)] hover:bg-[var(--dd-bg-hover)] hover:text-[var(--dd-text-primary)]"
+            onClick={signOut}
+            type="button"
+            title="Sign out"
+          >
+            <LogOut size={15} aria-hidden="true" />
+          </button>
+        </div>
         {view === 'dashboard' && (
           <Dashboard
             aiTools={aiTools}
@@ -494,7 +672,12 @@ function App() {
         {view === 'workspace' && (
           <PluginShell
             activePlugin={activePlugin}
+            busyPluginId={busyPluginId}
+            onBackToPlugins={() => setActivePluginId(null)}
+            onDelete={deletePlugin}
+            onOpenPlugin={openPlugin}
             onOpenStore={() => setView('store')}
+            plugins={plugins}
           />
         )}
         {view === 'store' && (
@@ -503,6 +686,10 @@ function App() {
             installedPlugins={plugins}
             onDelete={deletePlugin}
             onInstall={installFromRegistry}
+            onOpenLocalPlugins={() => {
+              setActivePluginId(null)
+              setView('workspace')
+            }}
             onOpen={(id) => {
               openPlugin(id)
             }}
@@ -536,6 +723,17 @@ function App() {
         )}
       </section>
       <ToastViewport dismissToast={dismissToast} toasts={toasts} />
+    </main>
+  )
+}
+
+function LoadingScreen() {
+  return (
+    <main className="grid min-h-screen place-items-center bg-[var(--dd-bg-base)] text-[var(--dd-text-primary)]">
+      <div className="grid gap-[var(--dd-space-3)] text-center">
+        <img alt="" className="mx-auto h-12 w-auto" src="/logo.png" />
+        <p className="m-0 text-[0.92rem] text-[var(--dd-text-secondary)]">Opening DawnDesk...</p>
+      </div>
     </main>
   )
 }
@@ -618,9 +816,44 @@ function fallbackRegistry(): RegistryPlugin[] {
   }))
 }
 
-function loadSavedChats(): SavedChat[] {
+function savedChatsKey(userId: string) {
+  return `${savedChatsStorageKey}.${userId}`
+}
+
+function getAuthRedirectUrl() {
+  return authRedirectUrl
+}
+
+async function handleAuthDeepLinks(urls: string[]) {
+  if (!supabase) return
+
+  for (const url of urls) {
+    if (!url.startsWith(authRedirectUrl)) continue
+
+    const callback = new URL(url)
+    const code = callback.searchParams.get('code')
+
+    if (code) {
+      await supabase.auth.exchangeCodeForSession(code)
+      return
+    }
+
+    const fragment = new URLSearchParams(callback.hash.replace(/^#/, ''))
+    const accessToken = fragment.get('access_token')
+    const refreshToken = fragment.get('refresh_token')
+
+    if (accessToken && refreshToken) {
+      await supabase.auth.setSession({
+        access_token: accessToken,
+        refresh_token: refreshToken,
+      })
+    }
+  }
+}
+
+function loadSavedChats(storageKey: string): SavedChat[] {
   try {
-    const value = localStorage.getItem(savedChatsStorageKey)
+    const value = localStorage.getItem(storageKey)
     if (!value) return []
 
     const parsed = JSON.parse(value)

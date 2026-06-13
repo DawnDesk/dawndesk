@@ -40,6 +40,8 @@ pub fn run() {
     }
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_deep_link::init())
+        .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
         .manage(AppState {
@@ -61,6 +63,7 @@ pub fn run() {
             ipc::settings::settings_set,
             ipc::settings::settings_get_data_root,
             ipc::settings::settings_set_data_root,
+            ipc::settings::auth_set_active_user,
             ipc::plugins::plugin_list,
             ipc::plugins::plugin_install,
             ipc::plugins::plugin_uninstall,

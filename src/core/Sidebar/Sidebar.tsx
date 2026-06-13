@@ -1,19 +1,13 @@
 import {
-  BriefcaseBusiness,
-  ChartNoAxesCombined,
   ChevronRight,
-  FileText,
   Home,
-  Image,
   MessageSquare,
   Package,
+  Puzzle,
   Settings,
   Store,
-  Terminal,
-  Video,
   type LucideIcon,
 } from 'lucide-react'
-import { PluginIcon } from '../PluginIcon'
 import type { PluginMeta, View } from '../../store/appStore'
 
 type SidebarProps = {
@@ -24,57 +18,45 @@ type SidebarProps = {
   view: View
 }
 
-const navItems: Array<{ icon: LucideIcon; label: string; view: View }> = [
+const navItems: Array<{ icon: LucideIcon; label: string; view: View; clearsPlugin?: boolean }> = [
   { icon: Home, label: 'Dashboard', view: 'dashboard' },
-  { icon: Store, label: 'Plugin Store', view: 'store' },
   { icon: MessageSquare, label: 'AI Chat', view: 'ai' },
   { icon: Settings, label: 'Settings', view: 'settings' },
+  { icon: Puzzle, label: 'Plugins', view: 'workspace', clearsPlugin: true },
+  { icon: Store, label: 'Marketplace', view: 'store', clearsPlugin: true },
 ]
 
-const pluginIcons: Record<string, LucideIcon> = {
-  finance: ChartNoAxesCombined,
-  notes: FileText,
-  'photo-editor': Image,
-  'project-manager': BriefcaseBusiness,
-  'video-editor': Video,
-  'dev-tools': Terminal,
-}
-
 const sidebarButton =
-  'relative flex min-h-10 w-full items-center gap-[var(--dd-space-3)] rounded-[var(--dd-radius-md)] px-[var(--dd-space-3)] py-[var(--dd-space-2)] text-left text-[var(--dd-text-secondary)] transition-[background,color,transform] duration-150 hover:-translate-y-px hover:bg-[var(--dd-bg-hover)] hover:text-[var(--dd-text-primary)]'
+  'relative flex min-h-9 w-full items-center gap-[var(--dd-space-3)] rounded-[var(--dd-radius-md)] px-[var(--dd-space-3)] py-[var(--dd-space-2)] text-left text-[var(--dd-text-primary)] transition-[background,color] duration-150 hover:bg-[rgba(255,255,255,0.035)]'
 const activeSidebarButton =
-  'bg-[var(--dd-bg-elevated)] text-[var(--dd-text-primary)] before:absolute before:left-0 before:top-1/2 before:h-5 before:w-0.5 before:-translate-y-1/2 before:rounded-full before:bg-[var(--dd-accent)]'
+  'bg-[linear-gradient(90deg,rgba(86,65,24,0.88),rgba(58,44,19,0.88))] shadow-[inset_2px_0_0_var(--dd-accent)]'
 const sidebarIcon =
-  'grid w-[18px] place-items-center text-[var(--dd-text-muted)] transition-colors duration-150'
+  'grid w-[17px] place-items-center text-[var(--dd-text-primary)] transition-colors duration-150'
 const activeSidebarIcon = 'text-[var(--dd-accent)]'
 
 export function Sidebar({
-  activePluginId,
-  plugins,
   setActivePluginId,
   setView,
   view,
 }: SidebarProps) {
-  const activePlugin = plugins.find((plugin) => plugin.id === activePluginId)
-
   return (
     <aside
-      className="flex min-h-0 flex-col gap-[var(--dd-space-4)] overflow-y-auto border-r border-[var(--dd-border)] bg-[linear-gradient(180deg,var(--dd-sidebar-sheen),transparent_55%),var(--dd-bg-surface)] p-[var(--dd-space-4)] max-[900px]:max-h-72 max-[900px]:border-b max-[900px]:border-r-0"
+      className="flex min-h-0 flex-col overflow-y-auto border-r border-[rgba(148,163,184,0.12)] bg-[#03080c] px-[var(--dd-space-3)] pb-[var(--dd-space-4)] pt-[var(--dd-space-4)] max-[900px]:max-h-72 max-[900px]:border-b max-[900px]:border-r-0"
       aria-label="DawnDesk navigation"
     >
-      <div className="flex min-h-[52px] items-center gap-[var(--dd-space-3)] border-b border-[var(--dd-border)] pb-[var(--dd-space-4)]">
-        <img alt="" src="/logo.png" className="h-8" />
-        <div>
-          <strong className="font-[var(--dd-font-display)] text-[1.2rem] leading-none text-[var(--dd-text-primary)]">
+      <div className="flex min-h-10 items-center gap-[var(--dd-space-2)] border-b border-[rgba(148,163,184,0.08)] pb-[var(--dd-space-3)]">
+        <img alt="" src="/logo.png" className="h-7 w-auto" />
+        <div className="min-w-0">
+          <strong className="block truncate font-[var(--dd-font-display)] text-[1rem] leading-none text-[var(--dd-text-primary)]">
             DawnDesk
           </strong>
         </div>
       </div>
 
-      <nav className="flex flex-col gap-[var(--dd-space-1)]" aria-label="Primary">
+      <nav className="mt-[var(--dd-space-4)] flex flex-col gap-[var(--dd-space-2)]" aria-label="Primary">
         {navItems.map((item) => {
           const Icon = item.icon
-          const isActive = view === item.view
+          const isActive = item.view === 'workspace' ? view === 'workspace' : view === item.view
 
           return (
             <button
@@ -82,7 +64,7 @@ export function Sidebar({
               key={item.view}
               type="button"
               onClick={() => {
-                if (item.view === 'dashboard') {
+                if (item.view === 'dashboard' || item.clearsPlugin) {
                   setActivePluginId(null)
                 }
                 setView(item.view)
@@ -92,57 +74,31 @@ export function Sidebar({
                 className={`${sidebarIcon} ${isActive ? activeSidebarIcon : ''}`}
                 aria-hidden="true"
               >
-                <Icon size={17} />
+                <Icon size={15} />
               </span>
-              <span className="font-medium">{item.label}</span>
+              <span className="text-[0.82rem] font-semibold">{item.label}</span>
             </button>
           )
         })}
       </nav>
 
-      <section className="flex flex-col gap-[var(--dd-space-1)]" aria-label="Installed plugins">
-        <div className="mt-[var(--dd-space-4)] flex items-center justify-between gap-[var(--dd-space-4)] px-[var(--dd-space-3)] text-[0.72rem] font-bold uppercase tracking-[0.14em] text-[var(--dd-text-secondary)]">
-          <span>Installed</span>
-          <small>{plugins.length}</small>
-        </div>
-        {plugins.map((plugin) => {
-          const Icon = pluginIcons[plugin.id] ?? Package
-          const isActive = plugin.id === activePluginId
-
-          return (
-            <button
-              className={`${sidebarButton} ${isActive ? activeSidebarButton : ''}`}
-              key={plugin.id}
-              type="button"
-              onClick={() => {
-                setActivePluginId(plugin.id)
-                setView('workspace')
-              }}
-            >
-              <PluginIcon fallback={Icon} icon={plugin.icon} label={plugin.name} />
-              <span>
-                <strong className="block font-bold text-[var(--dd-text-primary)]">
-                  {plugin.name}
-                </strong>
-              </span>
-            </button>
-          )
-        })}
-      </section>
-
       <section
-        className="relative mt-auto grid gap-[var(--dd-space-1)] border-t border-[var(--dd-border)] px-[var(--dd-space-3)] pb-[var(--dd-space-2)] pt-[var(--dd-space-4)]"
-        aria-label="Active plugin"
+        className="relative mt-auto grid min-h-[58px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-[var(--dd-space-2)] rounded-[var(--dd-radius-md)] border border-[rgba(148,163,184,0.12)] bg-[rgba(255,255,255,0.02)] px-[var(--dd-space-3)] py-[var(--dd-space-2)]"
+        aria-label="Account"
       >
-        <span className="text-[0.8rem] text-[var(--dd-text-muted)]">Active Plugin</span>
-        <strong className="text-[0.92rem] font-medium text-[var(--dd-text-primary)]">
-          {activePlugin?.name ?? 'None'}
-        </strong>
-        <small
-          className="absolute bottom-[var(--dd-space-3)] right-[var(--dd-space-3)] grid place-items-center text-[var(--dd-text-secondary)]"
-          aria-hidden="true"
-        >
-          <ChevronRight size={16} />
+        <span className="grid size-8 place-items-center overflow-hidden rounded-full bg-[linear-gradient(180deg,#f9fafb,#64748b)] text-[var(--dd-accent-contrast)]">
+          <Package size={16} aria-hidden="true" />
+        </span>
+        <span className="min-w-0">
+          <strong className="block truncate text-[0.82rem] font-bold text-[var(--dd-text-primary)]">
+            Adeel
+          </strong>
+          <small className="block truncate text-[0.74rem] font-bold text-[var(--dd-accent)]">
+            Pro Plan
+          </small>
+        </span>
+        <small className="grid place-items-center text-[var(--dd-text-primary)]" aria-hidden="true">
+          <ChevronRight size={15} />
         </small>
       </section>
     </aside>

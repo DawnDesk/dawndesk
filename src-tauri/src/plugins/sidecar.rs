@@ -1,6 +1,6 @@
 use crate::{
     plugins::manifest::read_manifest,
-    settings::config::AppConfig,
+    settings::config::{user_data_root, AppConfig},
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{json, Value};
@@ -49,9 +49,7 @@ impl SidecarManager {
         tool: &str,
         input: Value,
     ) -> Result<Value, String> {
-        let plugin_dir = PathBuf::from(&config.data_root)
-            .join("plugins")
-            .join(plugin_id);
+        let plugin_dir = user_data_root(config).join("plugins").join(plugin_id);
         let manifest = read_manifest(&plugin_dir.join("plugin.manifest.json"))?;
         let Some(sidecar) = manifest.sidecar else {
             return Err(format!("Plugin '{plugin_id}' does not define a sidecar."));

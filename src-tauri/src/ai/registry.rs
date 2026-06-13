@@ -1,7 +1,10 @@
-use crate::{plugins::manifest::read_manifest, settings::config::AppConfig};
+use crate::{
+    plugins::manifest::read_manifest,
+    settings::config::{user_data_root, AppConfig},
+};
 use serde::Serialize;
 use serde_json::Value;
-use std::{fs, path::PathBuf};
+use std::fs;
 
 #[derive(Clone, Debug, Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -13,7 +16,7 @@ pub struct ToolDefinition {
 }
 
 pub fn collect_tools(config: &AppConfig) -> Result<Vec<ToolDefinition>, String> {
-    let plugins_dir = PathBuf::from(&config.data_root).join("plugins");
+    let plugins_dir = user_data_root(config).join("plugins");
 
     if !plugins_dir.exists() {
         return Ok(Vec::new());

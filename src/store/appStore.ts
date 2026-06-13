@@ -55,6 +55,7 @@ export type ToolDefinition = {
 
 export type AppConfig = {
   dataRoot: string
+  activeUserId?: string | null
   aiProvider: 'anthropic' | 'ollamaCloud' | 'openai'
   apiKeyConfigured: boolean
   apiKeys: {
@@ -103,6 +104,7 @@ export const fallbackPlugins: PluginMeta[] = [
 
 export const fallbackConfig: AppConfig = {
   dataRoot: 'Default application data directory',
+  activeUserId: null,
   aiProvider: 'openai',
   apiKeyConfigured: false,
   apiKeys: {

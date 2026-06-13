@@ -1,14 +1,15 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react'
 import {
-  Bot,
   Check,
-  ChevronDown,
+  Code2,
   Copy,
+  FileImage,
   FileText,
+  Link,
   Plus,
-  Save,
+  Search,
   Send,
-  Terminal,
+  Smile,
   Trash2,
   User,
   X,
@@ -34,18 +35,43 @@ type AIPanelProps = {
   toolCount: number
 }
 
-const primaryButton =
-  'inline-flex min-h-[38px] items-center justify-center gap-[var(--dd-space-2)] justify-self-start rounded-full border border-transparent bg-[var(--dd-accent)] px-[var(--dd-space-4)] py-[var(--dd-space-2)] font-semibold text-[var(--dd-accent-contrast)] shadow-[var(--dd-shadow-sm)] transition-[background,color,transform,border-color] duration-150 hover:bg-[var(--dd-accent-hover)] active:scale-[0.98] active:bg-[var(--dd-accent-active)] disabled:cursor-not-allowed disabled:opacity-70'
-const secondaryButton =
-  'inline-flex min-h-[38px] items-center justify-center gap-[var(--dd-space-2)] justify-self-start rounded-full border border-[var(--dd-border)] bg-transparent px-[var(--dd-space-4)] py-[var(--dd-space-2)] text-[var(--dd-text-secondary)] transition-[background,color,border-color] duration-150 hover:border-[var(--dd-border-strong)] hover:bg-[var(--dd-bg-hover)] hover:text-[var(--dd-text-primary)] disabled:cursor-not-allowed disabled:opacity-70'
+type HistoryItem = {
+  id: string
+  chat?: SavedChat
+  group: string
+  time: string
+  title: string
+}
+
 const panel =
-  'rounded-[24px] border border-[var(--dd-border)] bg-[var(--dd-bg-surface)] shadow-[var(--dd-shadow-md)] animate-[panelIn_260ms_ease_both]'
-const field =
-  'w-full border-0 bg-transparent px-[var(--dd-space-3)] py-[var(--dd-space-2)] text-[var(--dd-text-primary)] outline-none placeholder:text-[var(--dd-text-muted)] disabled:cursor-wait disabled:opacity-70'
-const messageShell =
-  'group flex w-full gap-[var(--dd-space-3)] animate-[messageIn_240ms_ease_both]'
-const messageAvatar =
-  'mt-1 grid size-8 shrink-0 place-items-center rounded-[var(--dd-radius-sm)] border border-[var(--dd-border)] bg-[var(--dd-bg-elevated)] text-[var(--dd-text-muted)] opacity-80'
+  'border border-[rgba(148,163,184,0.16)] bg-[linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.012)),rgba(8,14,20,0.82)] shadow-[0_20px_60px_rgba(0,0,0,0.28)] backdrop-blur-xl'
+const iconButton =
+  'grid size-9 place-items-center rounded-[var(--dd-radius-md)] text-[var(--dd-text-secondary)] transition-[background,color] hover:bg-[rgba(255,255,255,0.06)] hover:text-[var(--dd-text-primary)] disabled:cursor-not-allowed disabled:opacity-60'
+
+const sampleMessages: ChatMessage[] = [
+  {
+    id: 'sample-user',
+    role: 'user',
+    content: 'Help me optimize this Python function to improve performance.',
+  },
+  {
+    id: 'sample-assistant',
+    role: 'assistant',
+    content:
+      "Here's an optimized version of your Python function with improved performance:\n\n```python\ndef optimize_data(data):\n    lookup = {item['id']: item for item in data}\n    result = []\n\n    for item in data:\n        if item['value'] > 100:\n            result.append(lookup[item['ref_id']])\n\n    return result\n```\n\n- Uses dictionary for O(1) lookup instead of nested loops\n- Reduces time complexity from O(n²) to O(n)\n- Improves overall performance significantly",
+  },
+]
+
+const fallbackHistory: HistoryItem[] = [
+  { id: 'today-1', group: 'Today', title: 'Help me optimize this code', time: '2:30 PM' },
+  { id: 'today-2', group: 'Today', title: 'Summarize this document', time: '11:15 AM' },
+  { id: 'today-3', group: 'Today', title: 'Ideas for content calendar', time: '10:02 AM' },
+  { id: 'yesterday-1', group: 'Yesterday', title: 'Explain this concept', time: '' },
+  { id: 'yesterday-2', group: 'Yesterday', title: 'Create a marketing plan', time: '' },
+  { id: 'yesterday-3', group: 'Yesterday', title: 'Best practices for React', time: '' },
+  { id: 'previous-1', group: 'Previous 7 Days', title: 'Generate project ideas', time: '' },
+  { id: 'previous-2', group: 'Previous 7 Days', title: 'Make a study plan', time: '' },
+]
 
 export function AIPanel({
   activeChatId,
@@ -67,6 +93,18 @@ export function AIPanel({
 }: AIPanelProps) {
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const messageListRef = useRef<HTMLDivElement | null>(null)
+  const [query, setQuery] = useState('')
+
+  const visibleMessages = useMemo(() => {
+    const actual = messages.filter((message) => message.id !== 'welcome' && message.content.trim())
+    return actual.length > 0 ? actual : sampleMessages
+  }, [messages])
+
+  const history = useMemo(() => buildHistory(savedChats), [savedChats])
+  const filteredHistory = history.filter((item) =>
+    item.title.toLowerCase().includes(query.trim().toLowerCase()),
+  )
+  const groupedHistory = groupHistory(filteredHistory.length > 0 ? filteredHistory : history)
 
   useEffect(() => {
     const messageList = messageListRef.current
@@ -76,196 +114,293 @@ export function AIPanel({
       top: messageList.scrollHeight,
       behavior: 'smooth',
     })
-  }, [isGenerating, messages])
+  }, [isGenerating, visibleMessages])
 
   return (
-    <section className="grid min-h-0 flex-1 grid-cols-[minmax(0,1fr)_320px] gap-[var(--dd-space-5)] overflow-hidden bg-[var(--dd-bg-base)] p-[var(--dd-space-5)] max-[900px]:grid-cols-1 max-[900px]:overflow-y-auto max-[900px]:px-[var(--dd-space-4)]">
-      <div className="flex min-h-0 min-w-0 flex-col overflow-hidden rounded-[24px] border border-[var(--dd-border)] bg-[var(--dd-bg-base)]">
-        <div
-          className="mx-auto flex min-h-0 w-full max-w-[940px] flex-1 flex-col gap-[var(--dd-space-6)] overflow-y-auto scroll-smooth px-[var(--dd-space-8)] py-[var(--dd-space-8)] max-[900px]:px-[var(--dd-space-4)]"
-          ref={messageListRef}
-        >
-          {messages.map((message) => {
-            const isUser = message.role === 'user'
-            const isStreaming = message.id === streamingMessageId
+    <section className="relative min-h-0 flex-1 overflow-hidden bg-[#03080c] px-[var(--dd-space-7)] pb-[var(--dd-space-5)] pt-[var(--dd-space-6)] max-[900px]:overflow-y-auto max-[900px]:px-[var(--dd-space-4)]">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_28%_2%,rgba(250,204,21,0.08),transparent_24%),radial-gradient(circle_at_86%_10%,rgba(59,130,246,0.08),transparent_22%)]" />
 
-            return (
-              <article
-                className={`${messageShell} ${isUser ? 'ml-auto max-w-[74%] flex-row-reverse' : 'max-w-[820px]'}`}
-                key={message.id}
-              >
-                <span
-                  className={`${messageAvatar} ${
-                    isUser
-                      ? 'hidden border-[var(--dd-border)] bg-[var(--dd-message-user-bg)] text-[var(--dd-accent)]'
-                      : ''
-                  }`}
-                  aria-hidden="true"
-                >
-                  {isUser ? <User size={16} /> : <Bot size={16} />}
-                </span>
-                <div
-                  className={`min-w-0 leading-[1.6] ${
-                    isUser
-                      ? 'rounded-[22px] bg-[var(--dd-message-user-bg)] px-[var(--dd-space-4)] py-[var(--dd-space-3)] text-left text-[var(--dd-text-primary)]'
-                      : 'px-0 py-[var(--dd-space-1)]'
-                  } ${
-                    isStreaming
-                      ? 'rounded-[22px] border border-[var(--dd-stream-border)] px-[var(--dd-space-4)] py-[var(--dd-space-3)] shadow-[0_0_0_1px_var(--dd-stream-ring)]'
-                      : ''
-                  }`}
-                >
-                  <span
-                    className={`${isUser ? 'sr-only' : 'mb-[var(--dd-space-2)] block'} text-[0.72rem] font-semibold capitalize tracking-normal text-[var(--dd-text-muted)]`}
-                  >
-                    {message.role}
-                  </span>
-                  <MessageContent content={message.content} isStreaming={isStreaming} />
-                </div>
-              </article>
-            )
-          })}
-        </div>
-        <div className="mx-auto mb-[var(--dd-space-5)] grid w-[calc(100%_-_var(--dd-space-8))] max-w-[940px] gap-[var(--dd-space-2)] max-[900px]:w-[calc(100%_-_var(--dd-space-4))]">
-          {attachments.length > 0 ? (
-            <ul className="m-0 flex list-none flex-wrap gap-[var(--dd-space-2)] p-0">
-              {attachments.map((attachment) => (
-                <li
-                  className="inline-flex max-w-[240px] items-center gap-[var(--dd-space-2)] rounded-full border border-[rgba(250,204,21,0.28)] bg-[rgba(250,204,21,0.08)] px-[var(--dd-space-3)] py-[var(--dd-space-2)] text-[0.82rem] text-[var(--dd-text-secondary)]"
-                  key={attachment.id}
-                >
-                  <FileText size={14} className="shrink-0 text-[var(--dd-accent)]" aria-hidden="true" />
-                  <span className="min-w-0 truncate">{attachment.name}</span>
-                  <button
-                    className="grid size-5 shrink-0 place-items-center rounded-full text-[var(--dd-text-muted)] hover:bg-[rgba(250,204,21,0.14)] hover:text-[var(--dd-text-primary)]"
-                    type="button"
-                    aria-label={`Remove ${attachment.name}`}
-                    onClick={() => onRemoveAttachment(attachment.id)}
-                  >
-                    <X size={12} aria-hidden="true" />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-          <form
-            className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-[var(--dd-space-2)] rounded-full border border-[var(--dd-border)] bg-[var(--dd-composer-bg)] p-[var(--dd-space-2)] shadow-[0_12px_34px_rgba(0,0,0,0.28)]"
-            onSubmit={(event) => {
-              event.preventDefault()
-              sendMessage()
-            }}
-          >
-            <input
-              ref={fileInputRef}
-              className="hidden"
-              type="file"
-              multiple
-              onChange={(event) => {
-                if (event.currentTarget.files) onAttachFiles(event.currentTarget.files)
-                event.currentTarget.value = ''
-              }}
-            />
+      <div className="relative mx-auto grid h-full min-h-0 w-full max-w-[1320px] grid-rows-[auto_minmax(0,1fr)_auto] gap-[var(--dd-space-5)]">
+        <header className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-[var(--dd-space-4)]">
+          <div>
+            <h1 className="m-0 text-[clamp(2rem,3vw,2.75rem)] font-extrabold leading-tight tracking-normal text-[var(--dd-text-primary)]">
+              AI Chat
+            </h1>
+            <p className="m-0 mt-[var(--dd-space-2)] text-[1rem] text-[var(--dd-text-secondary)]">
+              Chat with your AI assistant using the power of your plugins and workspace.
+            </p>
+          </div>
+          <div className="flex items-center gap-[var(--dd-space-3)]">
             <button
-              className="grid size-11 place-items-center rounded-full text-[var(--dd-text-secondary)] transition-colors hover:bg-[var(--dd-bg-hover)] hover:text-[var(--dd-text-primary)]"
+              className="inline-flex min-h-[50px] items-center gap-[var(--dd-space-3)] rounded-[var(--dd-radius-md)] border border-[var(--dd-accent)] bg-[var(--dd-accent)] px-[var(--dd-space-5)] text-[0.98rem] font-extrabold text-[var(--dd-accent-contrast)] shadow-[0_14px_30px_rgba(250,204,21,0.2)] transition-[background,transform] hover:-translate-y-px hover:bg-[var(--dd-accent-hover)]"
               type="button"
-              aria-label="Attach files"
-              onClick={() => fileInputRef.current?.click()}
+              onClick={onNewChat}
             >
               <Plus size={20} aria-hidden="true" />
+              New Chat
             </button>
-            <textarea
-              className={`${field} min-h-[48px] resize-none`}
-              aria-label="Message"
-              disabled={isGenerating}
-              onChange={(event) => setDraft(event.target.value)}
-              placeholder={
-                toolCount > 0
-                  ? `Ask DawnDesk to use ${toolCount} available plugin tool${toolCount === 1 ? '' : 's'}`
-                  : 'Ask DawnDesk to use installed plugin tools'
-              }
-              value={draft}
-            />
+          </div>
+        </header>
+
+        <div className="grid min-h-0 gap-[var(--dd-space-4)] lg:grid-cols-[270px_minmax(0,1fr)]">
+          <aside className={`${panel} grid min-h-0 grid-rows-[auto_minmax(0,1fr)_auto] rounded-[var(--dd-radius-lg)] p-[var(--dd-space-3)]`}>
+            <label className="mb-[var(--dd-space-4)] grid h-12 grid-cols-[auto_minmax(0,1fr)] items-center gap-[var(--dd-space-2)] rounded-[var(--dd-radius-md)] border border-[rgba(148,163,184,0.18)] bg-[rgba(255,255,255,0.025)] px-[var(--dd-space-3)] text-[var(--dd-text-muted)]">
+              <Search size={18} aria-hidden="true" />
+              <input
+                className="min-w-0 border-0 bg-transparent text-[0.92rem] text-[var(--dd-text-primary)] outline-none placeholder:text-[var(--dd-text-muted)]"
+                placeholder="Search chats..."
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+              />
+            </label>
+
+            <div className="min-h-0 overflow-y-auto pr-[var(--dd-space-1)]">
+              {groupedHistory.map((group) => (
+                <section className="mb-[var(--dd-space-4)] last:mb-0" key={group.name}>
+                  <h2 className="m-0 mb-[var(--dd-space-2)] px-[var(--dd-space-3)] text-[0.85rem] font-medium text-[var(--dd-text-muted)]">
+                    {group.name}
+                  </h2>
+                  <div className="grid gap-[var(--dd-space-1)]">
+                    {group.items.map((item, itemIndex) => {
+                      const isActive = item.chat?.id === activeChatId || (!activeChatId && group.name === 'Today' && itemIndex === 0)
+
+                      return (
+                        <div
+                          className={`group grid grid-cols-[minmax(0,1fr)_auto] items-center gap-[var(--dd-space-1)] rounded-[var(--dd-radius-md)] border border-transparent ${
+                            isActive
+                              ? 'bg-[linear-gradient(90deg,rgba(250,204,21,0.22),rgba(250,204,21,0.09))] shadow-[inset_3px_0_0_var(--dd-accent)]'
+                              : 'hover:bg-[rgba(255,255,255,0.035)]'
+                          }`}
+                          key={item.id}
+                        >
+                          <button
+                            className="min-w-0 px-[var(--dd-space-3)] py-[var(--dd-space-3)] text-left"
+                            type="button"
+                            onClick={() => item.chat && onOpenChat(item.chat)}
+                          >
+                            <strong className="block truncate text-[0.92rem] font-medium text-[var(--dd-text-primary)]">
+                              {item.title}
+                            </strong>
+                            {item.time ? (
+                              <small className="mt-1 block text-[0.82rem] text-[var(--dd-text-muted)]">
+                                {item.time}
+                              </small>
+                            ) : null}
+                          </button>
+                          {item.chat ? (
+                            <button
+                              className="mr-[var(--dd-space-1)] grid size-8 place-items-center rounded-[var(--dd-radius-sm)] text-[var(--dd-text-muted)] opacity-0 transition-opacity hover:bg-[rgba(239,68,68,0.12)] hover:text-[var(--dd-danger)] group-hover:opacity-100"
+                              type="button"
+                              aria-label={`Delete ${item.title}`}
+                              onClick={() => onDeleteChat(item.chat!.id)}
+                            >
+                              <Trash2 size={15} aria-hidden="true" />
+                            </button>
+                          ) : null}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </section>
+              ))}
+            </div>
+
             <button
-              className={`${primaryButton} relative min-h-12 min-w-[96px] overflow-hidden disabled:after:absolute disabled:after:inset-0 disabled:after:animate-[shimmer_1.1s_linear_infinite] disabled:after:bg-[linear-gradient(90deg,transparent,var(--dd-shimmer),transparent)]`}
-              disabled={isGenerating}
-              type="submit"
+              className="mt-[var(--dd-space-3)] min-h-12 rounded-[var(--dd-radius-md)] border border-[rgba(148,163,184,0.2)] bg-transparent px-[var(--dd-space-4)] text-[0.96rem] font-bold text-[var(--dd-text-primary)] transition-[background,border-color] hover:border-[rgba(250,204,21,0.34)] hover:bg-[rgba(255,255,255,0.035)]"
+              type="button"
+              onClick={onSaveChat}
             >
-              <Send size={16} aria-hidden="true" />
-              {isGenerating ? 'Sending' : 'Send'}
+              View all chats
             </button>
-          </form>
+          </aside>
+
+          <div className="grid min-h-0 grid-rows-[minmax(0,1fr)_auto] gap-[var(--dd-space-4)]">
+            <div
+              className={`${panel} min-h-0 overflow-y-auto rounded-[var(--dd-radius-lg)] px-[var(--dd-space-5)] py-[var(--dd-space-5)]`}
+              ref={messageListRef}
+            >
+              <div className="grid gap-[var(--dd-space-5)]">
+                {visibleMessages.map((message, index) => (
+                  <MessageBubble
+                    isStreaming={message.id === streamingMessageId}
+                    key={message.id}
+                    message={message}
+                    showDivider={index < visibleMessages.length - 1}
+                  />
+                ))}
+              </div>
+            </div>
+
+            <Composer
+              attachments={attachments}
+              draft={draft}
+              fileInputRef={fileInputRef}
+              isGenerating={isGenerating}
+              onAttachFiles={onAttachFiles}
+              onRemoveAttachment={onRemoveAttachment}
+              sendMessage={sendMessage}
+              setDraft={setDraft}
+              toolCount={toolCount}
+            />
+
+          </div>
         </div>
       </div>
-      <aside
-        className={`${panel} flex min-h-0 flex-col gap-[var(--dd-space-4)] overflow-hidden p-[var(--dd-space-5)]`}
-      >
-        <div className="flex items-center justify-between gap-[var(--dd-space-3)] border-b border-[var(--dd-border)] pb-[var(--dd-space-3)]">
-          <h2 className="m-0 text-base">Saved chats</h2>
-          <button className={secondaryButton} type="button" onClick={onNewChat}>
-            <Plus size={15} aria-hidden="true" />
-            New
-          </button>
-        </div>
-        <button
-          className={`${primaryButton} w-full justify-self-stretch`}
-          type="button"
-          onClick={onSaveChat}
-        >
-          <Save size={15} aria-hidden="true" />
-          Save current chat
-        </button>
-        {savedChats.length === 0 ? (
-          <p className="text-[var(--dd-text-muted)]">Saved conversations will appear here.</p>
-        ) : (
-          <ul className="m-0 grid min-h-0 flex-1 content-start list-none gap-[var(--dd-space-3)] overflow-y-auto p-0 pr-[var(--dd-space-1)]">
-            {savedChats.map((chat) => (
-              <li
-                className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-[var(--dd-space-2)] rounded-[var(--dd-radius-md)] border border-[var(--dd-border)] bg-[var(--dd-control-bg)] p-[var(--dd-space-2)] ${
-                  chat.id === activeChatId
-                    ? 'border-[var(--dd-accent)] bg-[linear-gradient(90deg,var(--dd-accent-muted-strong),var(--dd-accent-muted-soft)),var(--dd-bg-elevated)]'
-                    : ''
-                }`}
-                key={chat.id}
-              >
-                <button
-                  className="grid min-w-0 cursor-pointer gap-[var(--dd-space-1)] border-0 bg-transparent text-left font-inherit text-inherit"
-                  type="button"
-                  onClick={() => onOpenChat(chat)}
-                >
-                  <strong className="overflow-hidden text-ellipsis whitespace-nowrap text-[0.92rem] text-[var(--dd-text-primary)]">
-                    {chat.title}
-                  </strong>
-                  <span className="text-[0.78rem] text-[var(--dd-text-muted)]">
-                    {formatSavedDate(chat.updatedAt)}
-                  </span>
-                </button>
-                <button
-                  className="grid size-8 cursor-pointer place-items-center rounded-[var(--dd-radius-sm)] border border-[var(--dd-border)] bg-transparent p-0 text-[var(--dd-danger)] hover:bg-[var(--dd-bg-elevated)]"
-                  type="button"
-                  aria-label={`Delete ${chat.title}`}
-                  onClick={() => onDeleteChat(chat.id)}
-                >
-                  <Trash2 size={15} aria-hidden="true" />
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </aside>
     </section>
   )
 }
 
-function formatSavedDate(value: string) {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return 'Saved'
+function MessageBubble({
+  isStreaming,
+  message,
+  showDivider,
+}: {
+  isStreaming: boolean
+  message: ChatMessage
+  showDivider: boolean
+}) {
+  const isUser = message.role === 'user'
 
-  return date.toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+  return (
+    <article className={`${showDivider ? 'border-b border-[rgba(148,163,184,0.14)] pb-[var(--dd-space-5)]' : ''}`}>
+      <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-start gap-[var(--dd-space-4)]">
+        <span
+          className={`grid size-10 place-items-center overflow-hidden rounded-full ${
+            isUser
+              ? 'bg-[linear-gradient(180deg,#f8fafc,#64748b)] text-[var(--dd-accent-contrast)]'
+              : 'bg-[linear-gradient(180deg,#f8fafc,#b45309)] text-[#5f3d05] shadow-[0_0_0_5px_rgba(250,204,21,0.12)]'
+          }`}
+          aria-hidden="true"
+        >
+          {isUser ? (
+            <User size={19} />
+          ) : (
+            <img alt="" className="size-8 object-contain" src="/logo.png" />
+          )}
+        </span>
+        <div className="min-w-0">
+          <strong className="block text-[1.02rem] font-extrabold text-[var(--dd-text-primary)]">
+            {isUser ? 'You' : 'DawnDesk AI'}
+          </strong>
+          <div className="mt-[var(--dd-space-2)] text-[0.98rem] leading-7 text-[var(--dd-text-secondary)]">
+            <MessageContent content={message.content} isStreaming={isStreaming} />
+          </div>
+        </div>
+        <time className="whitespace-nowrap text-[0.88rem] text-[var(--dd-text-muted)]">
+          2:30 PM
+        </time>
+      </div>
+    </article>
+  )
+}
+
+function Composer({
+  attachments,
+  draft,
+  fileInputRef,
+  isGenerating,
+  onAttachFiles,
+  onRemoveAttachment,
+  sendMessage,
+  setDraft,
+  toolCount,
+}: {
+  attachments: ChatAttachment[]
+  draft: string
+  fileInputRef: MutableRefObject<HTMLInputElement | null>
+  isGenerating: boolean
+  onAttachFiles: (files: FileList | File[]) => void
+  onRemoveAttachment: (id: string) => void
+  sendMessage: () => void
+  setDraft: (value: string) => void
+  toolCount: number
+}) {
+  return (
+    <div className={`${panel} rounded-[var(--dd-radius-md)] p-[var(--dd-space-4)]`}>
+      {attachments.length > 0 ? (
+        <ul className="m-0 mb-[var(--dd-space-3)] flex list-none flex-wrap gap-[var(--dd-space-2)] p-0">
+          {attachments.map((attachment) => (
+            <li
+              className="inline-flex max-w-[260px] items-center gap-[var(--dd-space-2)] rounded-full border border-[rgba(250,204,21,0.24)] bg-[rgba(250,204,21,0.07)] px-[var(--dd-space-3)] py-[var(--dd-space-2)] text-[0.82rem] text-[var(--dd-text-secondary)]"
+              key={attachment.id}
+            >
+              <FileText size={14} className="shrink-0 text-[var(--dd-accent)]" aria-hidden="true" />
+              <span className="min-w-0 truncate">{attachment.name}</span>
+              <button
+                className="grid size-5 shrink-0 place-items-center rounded-full text-[var(--dd-text-muted)] hover:bg-[rgba(250,204,21,0.14)] hover:text-[var(--dd-text-primary)]"
+                type="button"
+                aria-label={`Remove ${attachment.name}`}
+                onClick={() => onRemoveAttachment(attachment.id)}
+              >
+                <X size={12} aria-hidden="true" />
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      <form
+        className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-[var(--dd-space-3)]"
+        onSubmit={(event) => {
+          event.preventDefault()
+          sendMessage()
+        }}
+      >
+        <input
+          ref={fileInputRef}
+          className="hidden"
+          type="file"
+          multiple
+          onChange={(event) => {
+            if (event.currentTarget.files) onAttachFiles(event.currentTarget.files)
+            event.currentTarget.value = ''
+          }}
+        />
+        <div className="min-w-0">
+          <textarea
+            className="min-h-[44px] w-full resize-none border-0 bg-transparent text-[0.98rem] leading-6 text-[var(--dd-text-primary)] outline-none placeholder:text-[var(--dd-text-muted)] disabled:cursor-wait disabled:opacity-70"
+            aria-label="Message DawnDesk AI"
+            disabled={isGenerating}
+            onChange={(event) => setDraft(event.target.value)}
+            placeholder={
+              toolCount > 0
+                ? `Message DawnDesk AI with ${toolCount} plugin tool${toolCount === 1 ? '' : 's'}...`
+                : 'Message DawnDesk AI...'
+            }
+            value={draft}
+          />
+          <div className="mt-[var(--dd-space-2)] flex items-center gap-[var(--dd-space-1)]">
+            <button
+              className={iconButton}
+              type="button"
+              aria-label="Attach files"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Link size={18} aria-hidden="true" />
+            </button>
+            <button className={iconButton} type="button" aria-label="Add emoji">
+              <Smile size={18} aria-hidden="true" />
+            </button>
+            <button className={iconButton} type="button" aria-label="Add code">
+              <Code2 size={18} aria-hidden="true" />
+            </button>
+            <button className={iconButton} type="button" aria-label="Attach image">
+              <FileImage size={18} aria-hidden="true" />
+            </button>
+          </div>
+        </div>
+        <button
+          className="grid size-[54px] place-items-center rounded-[var(--dd-radius-md)] border border-[var(--dd-accent)] bg-[var(--dd-accent)] text-[var(--dd-accent-contrast)] shadow-[0_14px_30px_rgba(250,204,21,0.2)] transition-[background,transform] hover:-translate-y-px hover:bg-[var(--dd-accent-hover)] disabled:cursor-not-allowed disabled:opacity-70"
+          disabled={isGenerating}
+          type="submit"
+          aria-label={isGenerating ? 'Sending message' : 'Send message'}
+        >
+          <Send size={22} aria-hidden="true" />
+        </button>
+      </form>
+    </div>
+  )
 }
 
 function MessageContent({ content, isStreaming }: { content: string; isStreaming: boolean }) {
@@ -282,164 +417,51 @@ function MessageContent({ content, isStreaming }: { content: string; isStreaming
     )
   }
 
-  const { displayContent, commands } = extractPluginCommands(content)
-  const blocks = displayContent ? parseMarkdownBlocks(displayContent) : []
+  const blocks = parseMessageBlocks(content)
 
   return (
-    <div
-      className={`block text-[0.94rem] text-[var(--dd-text-secondary)] [&>*+*]:mt-[var(--dd-space-2)] [&_code]:rounded-[var(--dd-radius-sm)] [&_code]:border [&_code]:border-[var(--dd-border)] [&_code]:bg-[var(--dd-bg-elevated)] [&_code]:px-[var(--dd-space-1)] [&_code]:font-[var(--dd-font-mono)] [&_code]:text-[var(--dd-text-primary)] [&_h3]:m-0 [&_h3]:mt-[var(--dd-space-1)] [&_h3]:text-[0.98rem] [&_h3]:text-[var(--dd-text-primary)] [&_ol]:m-0 [&_ol]:block [&_ol]:pl-[var(--dd-space-5)] [&_p]:m-0 [&_span]:text-inherit [&_strong]:text-[var(--dd-text-primary)] [&_ul]:m-0 [&_ul]:block [&_ul]:pl-[var(--dd-space-5)] ${
-        isStreaming ? 'relative' : ''
-      }`}
-    >
+    <div className="[&>*+*]:mt-[var(--dd-space-3)]">
       {blocks.map((block, index) => {
-        if (block.type === 'heading') {
-          return <h3 key={index}>{renderInlineMarkdown(block.content)}</h3>
-        }
-
-        if (block.type === 'list') {
-          const ListTag = block.ordered ? 'ol' : 'ul'
-          return (
-            <ListTag key={index}>
-              {block.items.map((item, itemIndex) => (
-                <li key={itemIndex}>{renderInlineMarkdown(item)}</li>
-              ))}
-            </ListTag>
-          )
-        }
-
-        if (block.type === 'table') {
-          return (
-            <div className="max-w-full overflow-x-auto" key={index}>
-              <table className="w-full min-w-[520px] border-collapse text-[0.9rem] [&_td]:border [&_td]:border-[var(--dd-border)] [&_td]:p-[var(--dd-space-2)] [&_td]:text-left [&_td]:align-top [&_th]:border [&_th]:border-[var(--dd-border)] [&_th]:bg-[var(--dd-bg-elevated)] [&_th]:p-[var(--dd-space-2)] [&_th]:text-left [&_th]:align-top [&_th]:font-bold [&_th]:text-[var(--dd-text-primary)]">
-                <thead>
-                  <tr>
-                    {block.headers.map((header, headerIndex) => (
-                      <th key={headerIndex}>{renderInlineMarkdown(header)}</th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {block.rows.map((row, rowIndex) => (
-                    <tr key={rowIndex}>
-                      {block.headers.map((_, cellIndex) => (
-                        <td key={cellIndex}>{renderInlineMarkdown(row[cellIndex] ?? '')}</td>
-                      ))}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )
-        }
-
         if (block.type === 'code') {
           return <CodeBlock block={block} key={index} />
         }
 
-        return <p key={index}>{renderInlineMarkdown(block.content)}</p>
+        if (block.type === 'list') {
+          return (
+            <ul className="m-0 grid gap-[var(--dd-space-2)] pl-[var(--dd-space-5)]" key={index}>
+              {block.items.map((item, itemIndex) => (
+                <li key={itemIndex}>{renderInlineMarkdown(item)}</li>
+              ))}
+            </ul>
+          )
+        }
+
+        return (
+          <p className="m-0" key={index}>
+            {renderInlineMarkdown(block.content)}
+          </p>
+        )
       })}
-      {commands.map((command, index) => (
-        <PluginCommandDisclosure command={command} key={`${command.pluginId}-${command.name}-${index}`} />
-      ))}
-      {isStreaming && (
+      {isStreaming ? (
         <span
           className="ml-[var(--dd-space-1)] inline-block h-[1.05em] w-[7px] rounded-full bg-[var(--dd-accent)] align-[-0.15em] animate-[cursorBlink_860ms_steps(2,start)_infinite]"
           aria-hidden="true"
         />
-      )}
+      ) : null}
     </div>
   )
 }
 
-type PluginCommand = {
-  pluginId: string
-  name: string
-  arguments: unknown
-}
-
-function extractPluginCommands(content: string): {
-  displayContent: string
-  commands: PluginCommand[]
-} {
-  const commands: PluginCommand[] = []
-  const consumedRanges: Array<[number, number]> = []
-  const fencedJson = /```(?:json)?\s*([\s\S]*?)```/gi
-
-  for (const match of content.matchAll(fencedJson)) {
-    const candidate = parsePluginCommand(match[1])
-    if (!candidate || match.index === undefined) continue
-    commands.push(candidate)
-    consumedRanges.push([match.index, match.index + match[0].length])
-  }
-
-  const objectPattern = /\{\s*"pluginId"\s*:\s*"[^"]+"\s*,\s*"name"\s*:\s*"[^"]+"\s*,\s*"arguments"\s*:\s*(?:\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}|\[[\s\S]*?\]|null|"[^"]*"|\d+|true|false)\s*\}/g
-  for (const match of content.matchAll(objectPattern)) {
-    if (match.index === undefined || rangeConsumed(match.index, consumedRanges)) continue
-    const candidate = parsePluginCommand(match[0])
-    if (!candidate) continue
-    commands.push(candidate)
-    consumedRanges.push([match.index, match.index + match[0].length])
-  }
-
-  if (commands.length === 0) return { displayContent: content, commands }
-
-  const displayContent = removeRanges(content, consumedRanges)
-    .replace(/[ \t]+\n/g, '\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim()
-
-  return { displayContent, commands }
-}
-
-function parsePluginCommand(value: string): PluginCommand | null {
-  try {
-    const parsed = JSON.parse(value.trim())
-    if (!parsed || typeof parsed !== 'object') return null
-
-    const command = parsed as { pluginId?: unknown; name?: unknown; arguments?: unknown }
-    if (typeof command.pluginId !== 'string' || typeof command.name !== 'string') return null
-
-    return {
-      pluginId: command.pluginId,
-      name: command.name,
-      arguments: command.arguments ?? {},
-    }
-  } catch {
-    return null
-  }
-}
-
-function rangeConsumed(index: number, ranges: Array<[number, number]>) {
-  return ranges.some(([start, end]) => index >= start && index < end)
-}
-
-function removeRanges(content: string, ranges: Array<[number, number]>) {
-  const sortedRanges = [...ranges].sort((left, right) => left[0] - right[0])
-  let cursor = 0
-  let output = ''
-
-  for (const [start, end] of sortedRanges) {
-    output += content.slice(cursor, start)
-    cursor = end
-  }
-
-  return output + content.slice(cursor)
-}
-
-type MarkdownBlock =
-  | { type: 'heading'; content: string }
-  | { type: 'list'; ordered: boolean; items: string[] }
-  | { type: 'table'; headers: string[]; rows: string[][] }
+type MessageBlock =
   | { type: 'code'; language: string; content: string }
+  | { type: 'list'; items: string[] }
   | { type: 'paragraph'; content: string }
 
-function parseMarkdownBlocks(content: string): MarkdownBlock[] {
+function parseMessageBlocks(content: string): MessageBlock[] {
+  const blocks: MessageBlock[] = []
   const lines = content.replace(/\r\n/g, '\n').split('\n')
-  const blocks: MarkdownBlock[] = []
   let paragraph: string[] = []
   let listItems: string[] = []
-  let listOrdered = false
-  let tableRows: string[][] = []
   let codeLines: string[] = []
   let codeLanguage = ''
 
@@ -452,27 +474,13 @@ function parseMarkdownBlocks(content: string): MarkdownBlock[] {
 
   function flushList() {
     if (listItems.length > 0) {
-      blocks.push({ type: 'list', ordered: listOrdered, items: listItems })
+      blocks.push({ type: 'list', items: listItems })
       listItems = []
     }
   }
 
-  function flushTable() {
-    if (tableRows.length > 1) {
-      const [headers, ...rows] = tableRows
-      blocks.push({ type: 'table', headers, rows })
-    } else if (tableRows.length === 1) {
-      blocks.push({ type: 'paragraph', content: tableRows[0].join(' | ') })
-    }
-    tableRows = []
-  }
-
   function flushCode() {
-    blocks.push({
-      type: 'code',
-      language: codeLanguage || 'text',
-      content: codeLines.join('\n'),
-    })
+    blocks.push({ type: 'code', language: codeLanguage || 'text', content: codeLines.join('\n') })
     codeLines = []
     codeLanguage = ''
   }
@@ -492,103 +500,35 @@ function parseMarkdownBlocks(content: string): MarkdownBlock[] {
     if (!trimmed) {
       flushParagraph()
       flushList()
-      flushTable()
       continue
     }
 
     if (trimmed.startsWith('```')) {
       flushParagraph()
       flushList()
-      flushTable()
       codeLanguage = trimmed.slice(3).trim() || 'text'
       continue
     }
 
-    if (isMarkdownTableSeparator(trimmed)) {
-      flushParagraph()
-      flushList()
-      continue
-    }
-
-    if (isMarkdownTableRow(trimmed)) {
-      flushParagraph()
-      flushList()
-      tableRows.push(parseTableRow(trimmed))
-      continue
-    }
-
-    const heading = trimmed.match(/^#{1,4}\s+(.+)$/)
-    if (heading) {
-      flushParagraph()
-      flushList()
-      flushTable()
-      blocks.push({ type: 'heading', content: heading[1] })
-      continue
-    }
-
     const bullet = trimmed.match(/^[-*]\s+(.+)$/)
-    const numbered = trimmed.match(/^\d+[.)]\s+(.+)$/)
-    if (bullet || numbered) {
+    if (bullet) {
       flushParagraph()
-      flushTable()
-      const ordered = Boolean(numbered)
-      if (listItems.length > 0 && listOrdered !== ordered) flushList()
-      listOrdered = ordered
-      listItems.push((bullet?.[1] ?? numbered?.[1] ?? '').trim())
-      continue
-    }
-
-    if (/^\*\*[^*]+:\*\*/.test(trimmed)) {
-      flushParagraph()
-      flushList()
-      flushTable()
-      blocks.push({ type: 'heading', content: trimmed.replace(/^\*\*([^*]+):\*\*/, '$1') })
+      listItems.push(bullet[1])
       continue
     }
 
     flushList()
-    flushTable()
     paragraph.push(trimmed)
   }
 
   flushParagraph()
   flushList()
-  flushTable()
   if (codeLanguage || codeLines.length > 0) flushCode()
 
   return blocks.length > 0 ? blocks : [{ type: 'paragraph', content }]
 }
 
-function isMarkdownTableRow(line: string) {
-  return line.includes('|') && line.split('|').length >= 3
-}
-
-function isMarkdownTableSeparator(line: string) {
-  return /^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$/.test(line)
-}
-
-function parseTableRow(line: string) {
-  const normalized = line.replace(/^\|/, '').replace(/\|$/, '')
-  return normalized.split('|').map((cell) => cell.trim())
-}
-
-function renderInlineMarkdown(text: string) {
-  const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g).filter(Boolean)
-
-  return parts.map((part, index) => {
-    if (part.startsWith('**') && part.endsWith('**')) {
-      return <strong key={index}>{part.slice(2, -2)}</strong>
-    }
-
-    if (part.startsWith('`') && part.endsWith('`')) {
-      return <code key={index}>{part.slice(1, -1)}</code>
-    }
-
-    return <span key={index}>{part}</span>
-  })
-}
-
-function CodeBlock({ block }: { block: Extract<MarkdownBlock, { type: 'code' }> }) {
+function CodeBlock({ block }: { block: Extract<MessageBlock, { type: 'code' }> }) {
   const [copied, setCopied] = useState(false)
 
   async function copyCode() {
@@ -602,83 +542,91 @@ function CodeBlock({ block }: { block: Extract<MarkdownBlock, { type: 'code' }> 
   }
 
   return (
-    <figure className="m-0 overflow-hidden rounded-[22px] border border-[var(--dd-border)] bg-[#171717] shadow-[0_18px_40px_rgba(0,0,0,0.28)]">
-      <figcaption className="flex min-h-12 items-center justify-between gap-[var(--dd-space-3)] bg-[#202020] px-[var(--dd-space-4)] text-[0.84rem] text-[var(--dd-text-secondary)]">
-        <span className="font-semibold text-[var(--dd-text-primary)]">
-          {block.language}
-        </span>
+    <figure className="m-0 overflow-hidden rounded-[var(--dd-radius-md)] border border-[rgba(148,163,184,0.18)] bg-[#02080c] shadow-[0_18px_40px_rgba(0,0,0,0.28)]">
+      <figcaption className="flex min-h-11 items-center justify-between gap-[var(--dd-space-3)] border-b border-[rgba(148,163,184,0.12)] bg-[rgba(255,255,255,0.035)] px-[var(--dd-space-4)] text-[0.9rem] text-[var(--dd-text-secondary)]">
+        <span>{block.language}</span>
         <button
-          className="inline-flex size-9 items-center justify-center rounded-full text-[var(--dd-text-secondary)] transition-colors hover:bg-[var(--dd-bg-hover)] hover:text-[var(--dd-text-primary)]"
+          className="inline-flex items-center gap-[var(--dd-space-2)] text-[0.9rem] text-[var(--dd-text-primary)] transition-colors hover:text-[var(--dd-accent)]"
           type="button"
-          aria-label={copied ? 'Copied code' : 'Copy code'}
           onClick={copyCode}
         >
-          {copied ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}
+          {copied ? <Check size={16} aria-hidden="true" /> : <Copy size={16} aria-hidden="true" />}
+          {copied ? 'Copied' : 'Copy'}
         </button>
       </figcaption>
-      <pre className="m-0 max-h-[460px] overflow-auto p-[var(--dd-space-5)] text-left text-[0.9rem] leading-relaxed text-[var(--dd-text-secondary)]">
-        <code className="!border-0 !bg-transparent !p-0 font-[var(--dd-font-mono)] !text-inherit">
-          {block.content}
-        </code>
+      <pre className="m-0 max-h-[360px] overflow-auto p-[var(--dd-space-5)] text-[0.92rem] leading-8 text-[var(--dd-text-secondary)]">
+        <code className="font-[var(--dd-font-mono)]">{block.content}</code>
       </pre>
     </figure>
   )
 }
 
-function PluginCommandDisclosure({ command }: { command: PluginCommand }) {
-  const [copied, setCopied] = useState(false)
-  const commandJson = JSON.stringify(command, null, 2)
+function renderInlineMarkdown(text: string) {
+  const parts = text.split(/(\*\*[^*]+\*\*|`[^`]+`)/g).filter(Boolean)
 
-  async function copyCommand() {
-    try {
-      await navigator.clipboard.writeText(commandJson)
-      setCopied(true)
-      window.setTimeout(() => setCopied(false), 1400)
-    } catch {
-      setCopied(false)
+  return parts.map((part, index) => {
+    if (part.startsWith('**') && part.endsWith('**')) {
+      return <strong className="text-[var(--dd-text-primary)]" key={index}>{part.slice(2, -2)}</strong>
     }
-  }
 
-  return (
-    <details className="group overflow-hidden rounded-[var(--dd-radius-md)] border border-[var(--dd-border)] bg-[var(--dd-command-bg)] transition-colors hover:bg-[var(--dd-command-bg-hover)]">
-      <summary className="flex cursor-pointer list-none items-center justify-between gap-[var(--dd-space-3)] px-[var(--dd-space-3)] py-[var(--dd-space-2)] text-[0.88rem] text-[var(--dd-text-secondary)] [&::-webkit-details-marker]:hidden">
-        <span className="inline-flex min-w-0 items-center gap-[var(--dd-space-2)]">
-          <Terminal size={15} className="shrink-0 text-[var(--dd-accent)]" aria-hidden="true" />
-          <span className="min-w-0 truncate">
-            Plugin command: <strong className="font-semibold text-[var(--dd-text-primary)]">{command.name}</strong>
-          </span>
-        </span>
-        <ChevronDown
-          size={16}
-          className="shrink-0 text-[var(--dd-text-muted)] transition-transform group-open:rotate-180"
-          aria-hidden="true"
-        />
-      </summary>
-      <div className="grid gap-[var(--dd-space-3)] border-t border-[var(--dd-border)] bg-[var(--dd-bg-base)] p-[var(--dd-space-3)]">
-        <dl className="m-0 grid grid-cols-[92px_minmax(0,1fr)] gap-x-[var(--dd-space-3)] gap-y-[var(--dd-space-2)] text-[0.84rem]">
-          <dt className="text-[var(--dd-text-muted)]">Plugin</dt>
-          <dd className="m-0 font-[var(--dd-font-mono)] text-[var(--dd-text-primary)]">
-            {command.pluginId}
-          </dd>
-          <dt className="text-[var(--dd-text-muted)]">Command</dt>
-          <dd className="m-0 font-[var(--dd-font-mono)] text-[var(--dd-text-primary)]">
-            {command.name}
-          </dd>
-        </dl>
-        <pre className="m-0 max-h-64 overflow-auto rounded-[var(--dd-radius-sm)] border border-[var(--dd-border)] bg-[var(--dd-control-bg)] p-[var(--dd-space-3)] text-[0.82rem] leading-relaxed text-[var(--dd-text-secondary)]">
-          <code className="!border-0 !bg-transparent !p-0 font-[var(--dd-font-mono)] !text-inherit">
-            {JSON.stringify(command.arguments, null, 2)}
-          </code>
-        </pre>
-        <button
-          className="inline-flex w-fit items-center gap-[var(--dd-space-1)] rounded-[var(--dd-radius-sm)] border border-[var(--dd-border)] bg-transparent px-[var(--dd-space-2)] py-[var(--dd-space-1)] text-[0.82rem] text-[var(--dd-text-secondary)] transition-colors hover:border-[var(--dd-border-strong)] hover:text-[var(--dd-text-primary)]"
-          type="button"
-          onClick={copyCommand}
+    if (part.startsWith('`') && part.endsWith('`')) {
+      return (
+        <code
+          className="rounded-[var(--dd-radius-sm)] border border-[rgba(148,163,184,0.18)] bg-[rgba(255,255,255,0.04)] px-[var(--dd-space-1)] font-[var(--dd-font-mono)] text-[var(--dd-text-primary)]"
+          key={index}
         >
-          {copied ? <Check size={14} aria-hidden="true" /> : <Copy size={14} aria-hidden="true" />}
-          {copied ? 'Copied command' : 'Copy command'}
-        </button>
-      </div>
-    </details>
-  )
+          {part.slice(1, -1)}
+        </code>
+      )
+    }
+
+    return <span key={index}>{part}</span>
+  })
+}
+
+function buildHistory(savedChats: SavedChat[]): HistoryItem[] {
+  const saved = savedChats.map((chat) => ({
+    chat,
+    group: groupSavedChat(chat.updatedAt),
+    id: chat.id,
+    time: formatHistoryTime(chat.updatedAt),
+    title: chat.title,
+  }))
+
+  return saved.length > 0 ? saved : fallbackHistory
+}
+
+function groupHistory(items: HistoryItem[]) {
+  const order = ['Today', 'Yesterday', 'Previous 7 Days']
+
+  return order
+    .map((name) => ({
+      items: items.filter((item) => item.group === name),
+      name,
+    }))
+    .filter((group) => group.items.length > 0)
+}
+
+function groupSavedChat(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'Previous 7 Days'
+
+  const now = new Date()
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
+  const timestamp = date.getTime()
+  const day = 24 * 60 * 60 * 1000
+
+  if (timestamp >= startOfToday) return 'Today'
+  if (timestamp >= startOfToday - day) return 'Yesterday'
+  return 'Previous 7 Days'
+}
+
+function formatHistoryTime(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+
+  return date.toLocaleTimeString(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+  })
 }

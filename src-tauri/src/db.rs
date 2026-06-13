@@ -1,8 +1,8 @@
-use crate::settings::config::AppConfig;
-use std::{fs, path::PathBuf};
+use crate::settings::config::{user_data_root, AppConfig};
+use std::fs;
 
 pub fn initialize_database(config: &AppConfig) -> Result<(), String> {
-    let db_path = PathBuf::from(&config.data_root).join("dawndesk.db");
+    let db_path = user_data_root(config).join("dawndesk.db");
     if let Some(parent) = db_path.parent() {
         fs::create_dir_all(parent).map_err(|error| error.to_string())?;
     }

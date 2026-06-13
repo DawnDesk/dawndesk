@@ -4,10 +4,10 @@ use crate::{
         registry::{collect_tools, ToolDefinition},
     },
     ipc::settings::current_config,
+    settings::config::user_data_root,
     AppState,
 };
 use serde_json::{json, Value};
-use std::path::PathBuf;
 
 #[tauri::command]
 pub fn ai_get_tools(state: tauri::State<'_, AppState>) -> Result<Vec<ToolDefinition>, String> {
@@ -67,7 +67,7 @@ fn run_notes_tool(
     name: &str,
     arguments: Value,
 ) -> Result<Value, String> {
-    let plugin_dir = PathBuf::from(&config.data_root).join("plugins").join("notes");
+    let plugin_dir = user_data_root(config).join("plugins").join("notes");
     let notes_key = "notes";
     let mut notes = read_plugin_array(&plugin_dir, notes_key)?;
 

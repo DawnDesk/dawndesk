@@ -5,10 +5,11 @@ use crate::{
         uninstall_plugin, PluginDownloadProgress, PluginMeta,
     },
     plugins::manifest::read_manifest,
+    settings::config::user_data_root,
     AppState,
 };
 use serde_json::Value;
-use std::{fs, path::PathBuf};
+use std::fs;
 use tauri::Emitter;
 
 #[tauri::command]
@@ -84,9 +85,7 @@ pub fn plugin_info(
 ) -> Result<Value, String> {
     let config = current_config(&state)?;
     let plugin_id = resolve_plugin_id(&config, plugin_id)?;
-    let plugin_dir = PathBuf::from(&config.data_root)
-        .join("plugins")
-        .join(&plugin_id);
+    let plugin_dir = user_data_root(&config).join("plugins").join(&plugin_id);
     let manifest = read_manifest(&plugin_dir.join("plugin.manifest.json"))?;
 
     Ok(serde_json::json!({
@@ -103,9 +102,7 @@ pub fn plugin_entry_document(
     state: tauri::State<'_, AppState>,
 ) -> Result<String, String> {
     let config = current_config(&state)?;
-    let plugin_dir = PathBuf::from(&config.data_root)
-        .join("plugins")
-        .join(&plugin_id);
+    let plugin_dir = user_data_root(&config).join("plugins").join(&plugin_id);
     let manifest_path = plugin_dir.join("plugin.manifest.json");
     let manifest = read_manifest(&manifest_path)?;
     let entry_path = plugin_dir.join("index.html");

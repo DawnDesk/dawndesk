@@ -27,6 +27,10 @@ export async function saveSettings(config: AppConfig) {
   return callHost<void>('settings_set', { config })
 }
 
+export async function setActiveUser(userId: string | null) {
+  return callHost<void>('auth_set_active_user', { userId })
+}
+
 export async function listPlugins() {
   return callHost<PluginMeta[]>('plugin_list')
 }

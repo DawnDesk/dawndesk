@@ -1,19 +1,20 @@
 import {
-  Bot,
-  BrainCircuit,
-  CheckCircle2,
-  Cpu,
-  Database,
+  ChevronRight,
+  Cloud,
+  Edit3,
   FileText,
+  Home,
+  Image,
   MessageSquare,
-  Package,
-  PlugZap,
-  Settings,
+  Plug,
+  Sparkles,
   Store,
+  Video,
+  WalletCards,
   WandSparkles,
   type LucideIcon,
 } from 'lucide-react'
-import { PluginIcon } from '../PluginIcon'
+import type { ReactNode } from 'react'
 import type {
   AppConfig,
   ChatMessage,
@@ -36,12 +37,69 @@ type DashboardProps = {
   savedChats: SavedChat[]
 }
 
-const primaryButton =
-  'inline-flex min-h-10 items-center justify-center gap-[var(--dd-space-2)] rounded-full border border-transparent bg-[var(--dd-accent)] px-[var(--dd-space-4)] py-[var(--dd-space-2)] font-semibold text-[var(--dd-accent-contrast)] shadow-[var(--dd-shadow-sm)] transition-[background,transform] duration-150 hover:-translate-y-px hover:bg-[var(--dd-accent-hover)] active:scale-[0.98]'
-const secondaryButton =
-  'inline-flex min-h-10 items-center justify-center gap-[var(--dd-space-2)] rounded-full border border-[var(--dd-border)] bg-[var(--dd-bg-elevated)] px-[var(--dd-space-4)] py-[var(--dd-space-2)] font-medium text-[var(--dd-text-primary)] transition-[background,border-color,transform] duration-150 hover:-translate-y-px hover:border-[var(--dd-border-strong)] hover:bg-[var(--dd-bg-hover)]'
+type QuickCard = {
+  color: string
+  description: string
+  icon: LucideIcon
+  id: string
+  title: string
+}
+
+const quickCards: QuickCard[] = [
+  {
+    color: 'from-[#ffb020] to-[#ffcc18]',
+    description: 'Create and manage your notes',
+    icon: FileText,
+    id: 'notes',
+    title: 'Notes',
+  },
+  {
+    color: 'from-[#7c3aed] to-[#a855f7]',
+    description: 'Chat with AI assistant',
+    icon: Sparkles,
+    id: 'ai',
+    title: 'AI Chat',
+  },
+  {
+    color: 'from-[#4ade80] to-[#22c55e]',
+    description: 'Track expenses and budgets',
+    icon: WalletCards,
+    id: 'finance',
+    title: 'Finance',
+  },
+  {
+    color: 'from-[#db2777] to-[#f43f5e]',
+    description: 'Edit and enhance images',
+    icon: Image,
+    id: 'photo-editor',
+    title: 'Photo Editor',
+  },
+  {
+    color: 'from-[#f97316] to-[#ef4444]',
+    description: 'Edit and create videos',
+    icon: Video,
+    id: 'video-editor',
+    title: 'Video Editor',
+  },
+]
+
+const sampleWork = [
+  { color: 'bg-[linear-gradient(135deg,#fafafa,#a8b1c5)]', meta: 'Notes  •  Edited 2h ago', title: 'Meeting Notes.md' },
+  { color: 'bg-[linear-gradient(135deg,#60a5fa,#2563eb)]', meta: 'Projects  •  Edited 5h ago', title: 'Q2 Marketing Plan' },
+  { color: 'bg-[linear-gradient(135deg,#a855f7,#7c3aed)]', meta: 'Notes  •  Edited 1d ago', title: 'Product Ideas Brainstorm' },
+]
+
+const sampleActivity = [
+  { color: 'bg-[var(--dd-accent)]', icon: Home, label: 'Notes plugin updated', time: 'Just now' },
+  { color: 'bg-[#3b82f6]', icon: MessageSquare, label: 'New chat created', time: '3m ago' },
+  { color: 'bg-[var(--dd-success)]', icon: Store, label: 'Q2 Marketing Plan updated', time: '1h ago' },
+  { color: 'bg-[#ec4899]', icon: Store, label: 'Photo Editor plugin updated', time: '5h ago' },
+]
+
 const panel =
-  'rounded-[22px] border border-[var(--dd-border)] bg-[linear-gradient(180deg,var(--dd-card-sheen),transparent),var(--dd-bg-surface)] shadow-[var(--dd-shadow-sm)]'
+  'border border-[rgba(148,163,184,0.12)] bg-[linear-gradient(180deg,rgba(255,255,255,0.045),rgba(255,255,255,0.018)),rgba(12,18,24,0.82)] shadow-[0_18px_46px_rgba(0,0,0,0.32)] backdrop-blur-xl'
+const ghostButton =
+  'inline-flex min-h-12 items-center justify-center gap-[var(--dd-space-2)] rounded-[var(--dd-radius-md)] border border-[rgba(255,255,255,0.24)] bg-[rgba(8,12,16,0.58)] px-[var(--dd-space-5)] py-[var(--dd-space-3)] text-[0.94rem] font-semibold text-[var(--dd-text-primary)] transition-[background,border-color,transform] duration-150 hover:-translate-y-px hover:border-[rgba(250,204,21,0.44)] hover:bg-[rgba(16,22,28,0.72)]'
 
 export function Dashboard({
   aiTools,
@@ -55,303 +113,331 @@ export function Dashboard({
   registryPlugins,
   savedChats,
 }: DashboardProps) {
-  const currentChatTokens = estimateTokens(messages.map((message) => message.content).join('\n'))
-  const savedChatTokens = estimateTokens(
-    savedChats
-      .flatMap((chat) => chat.messages)
-      .map((message) => message.content)
-      .join('\n'),
-  )
-  const currentChatMessages = messages.filter((message) => message.id !== 'welcome').length
-  const assistantMessages = messages.filter((message) => message.role === 'assistant').length
-  const usagePercent = Math.min(100, Math.round((currentChatTokens / 128_000) * 100))
-  const lastSavedChat = savedChats[0]
-  const availablePlugins = Math.max(registryPlugins.length, plugins.length)
+  const recentChats = buildRecentChats(savedChats, messages)
+  const installedCount = Math.max(plugins.length, aiTools.length > 0 ? plugins.length : 0)
+  const availableCount = Math.max(registryPlugins.length, quickCards.length)
+
+  function openQuickCard(card: QuickCard) {
+    if (card.id === 'ai') {
+      onOpenAI()
+      return
+    }
+
+    if (plugins.some((plugin) => plugin.id === card.id)) {
+      onOpenPlugin(card.id)
+      return
+    }
+
+    onOpenStore()
+  }
 
   return (
-    <section className="min-h-0 flex-1 overflow-y-auto px-[var(--dd-space-8)] py-[var(--dd-space-7)] max-[900px]:px-[var(--dd-space-4)]">
-      <div className="mx-auto grid w-full max-w-[1180px] gap-[var(--dd-space-6)]">
-        <header className="grid gap-[var(--dd-space-5)] border-b border-[var(--dd-border)] pb-[var(--dd-space-6)] lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
-          <div className="grid gap-[var(--dd-space-3)]">
-            <span className="inline-flex w-fit items-center gap-[var(--dd-space-2)] rounded-full border border-[rgba(250,204,21,0.26)] bg-[rgba(250,204,21,0.08)] px-[var(--dd-space-3)] py-[var(--dd-space-1)] text-[0.82rem] font-semibold text-[var(--dd-accent)]">
-              <CheckCircle2 size={15} aria-hidden="true" />
-              Host entry screen
-            </span>
-            <div className="flex items-center gap-[var(--dd-space-4)]">
-              <img
-                alt=""
-                className="h-auto w-[clamp(70px,8vw,98px)] rounded-[var(--dd-radius-xl)] bg-[radial-gradient(circle_at_50%_42%,var(--dd-logo-glow),transparent_58%),linear-gradient(180deg,var(--dd-logo-wash),var(--dd-logo-wash-soft)),var(--dd-bg-elevated)] drop-shadow-[var(--dd-shadow-yellow)]"
-                src="/logo.png"
+    <section className="relative min-h-0 flex-1 overflow-y-auto bg-[#03080c] px-[var(--dd-space-7)] pb-[var(--dd-space-6)] pt-[var(--dd-space-6)] max-[900px]:px-[var(--dd-space-4)]">
+      <div
+        className="pointer-events-none absolute inset-0 opacity-80"
+        style={{
+          background:
+            'radial-gradient(circle at 32% 15%, rgba(250, 204, 21, 0.1), transparent 24%), radial-gradient(circle at 86% 0%, rgba(239, 68, 68, 0.1), transparent 24%)',
+        }}
+      />
+
+      <div className="relative mx-auto grid w-full max-w-[1360px] gap-[var(--dd-space-5)]">
+        <section className="relative isolate min-h-[300px] overflow-hidden rounded-[var(--dd-radius-lg)] border border-[rgba(148,163,184,0.11)] bg-[var(--dd-bg-surface)] p-[var(--dd-space-8)] shadow-[0_24px_80px_rgba(0,0,0,0.36)] max-[760px]:p-[var(--dd-space-5)]">
+          <img
+            alt=""
+            className="absolute inset-0 -z-20 h-full w-full object-cover"
+            src="/dashboard.png"
+          />
+          <div className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(3,8,12,0.98)_0%,rgba(3,8,12,0.72)_34%,rgba(3,8,12,0.18)_64%,rgba(3,8,12,0.82)_100%)]" />
+          <div className="absolute inset-x-0 bottom-0 -z-10 h-32 bg-[linear-gradient(180deg,transparent,rgba(3,8,12,0.94))]" />
+
+          <div className="grid min-h-[236px] grid-cols-[minmax(0,1fr)_330px] items-center gap-[var(--dd-space-8)] max-[1050px]:grid-cols-1">
+            <div className="max-w-[460px]">
+              <p className="m-0 text-[1.12rem] font-bold text-[var(--dd-accent)]">
+                Good Afternoon, Adeel <span aria-hidden="true">👋</span>
+              </p>
+              <h1 className="m-0 mt-[var(--dd-space-4)] text-[clamp(2.1rem,4vw,3.45rem)] font-extrabold leading-[1.02] tracking-normal text-[var(--dd-text-primary)]">
+                DawnDesk is ready
+              </h1>
+              <p className="m-0 mt-[var(--dd-space-4)] max-w-[390px] text-[1rem] leading-7 text-[var(--dd-text-secondary)]">
+                Your AI workspace. All your tools, chats, and context — in one place.
+              </p>
+              <div className="mt-[var(--dd-space-8)] flex flex-wrap gap-[var(--dd-space-4)]">
+                <button
+                  className="inline-flex min-h-12 items-center justify-center gap-[var(--dd-space-2)] rounded-[var(--dd-radius-md)] border border-[var(--dd-accent)] bg-[var(--dd-accent)] px-[var(--dd-space-6)] py-[var(--dd-space-3)] text-[0.95rem] font-extrabold text-[var(--dd-accent-contrast)] shadow-[0_16px_36px_rgba(250,204,21,0.24)] transition-[background,transform] duration-150 hover:-translate-y-px hover:bg-[var(--dd-accent-hover)]"
+                  type="button"
+                  onClick={onOpenAI}
+                >
+                  <WandSparkles size={18} aria-hidden="true" />
+                  Ask AI
+                </button>
+                <button className={ghostButton} type="button" onClick={onOpenStore}>
+                  <Store size={18} aria-hidden="true" />
+                  Open Marketplace
+                </button>
+              </div>
+            </div>
+
+            <aside className={`${panel} ml-auto grid w-full max-w-[340px] rounded-[var(--dd-radius-lg)] p-[var(--dd-space-5)] max-[1050px]:ml-0`}>
+              <MetricRow
+                action="View all"
+                icon={Plug}
+                label="Plugins Installed"
+                value={formatNumber(installedCount)}
+                onClick={onOpenStore}
               />
-              <div>
-                <h1 className="m-0 text-[clamp(2rem,4vw,4rem)] font-bold leading-[0.95] tracking-normal text-[var(--dd-text-primary)]">
-                  DawnDesk
-                </h1>
-                <p className="m-0 mt-[var(--dd-space-2)] max-w-2xl text-[1rem] leading-7 text-[var(--dd-text-secondary)]">
-                  A plugin-first workspace with AI context, installed tools, saved chats, and host
-                  status in one place.
-                </p>
-              </div>
-            </div>
+              <div className="my-[var(--dd-space-4)] h-px bg-[rgba(148,163,184,0.14)]" />
+              <MetricRow
+                icon={Cloud}
+                label="AI Provider"
+                status={config.apiKeyConfigured ? 'Connected' : 'Needs setup'}
+                value={formatProvider(config.aiProvider)}
+                onClick={onOpenSettings}
+              />
+            </aside>
           </div>
-          <div className="flex flex-wrap gap-[var(--dd-space-2)]">
-            <button className={primaryButton} type="button" onClick={onOpenAI}>
-              <WandSparkles size={16} aria-hidden="true" />
-              Open AI Chat
-            </button>
-            <button className={secondaryButton} type="button" onClick={onOpenStore}>
-              <Store size={16} aria-hidden="true" />
-              Plugin Store
-            </button>
-          </div>
-        </header>
+        </section>
 
-        <div className="grid gap-[var(--dd-space-4)] md:grid-cols-2 xl:grid-cols-4">
-          <MetricCard
-            icon={BrainCircuit}
-            label="Current chat tokens"
-            value={formatNumber(currentChatTokens)}
-            detail="Estimated from local conversation text"
-          />
-          <MetricCard
-            icon={PlugZap}
-            label="AI plugin tools"
-            value={formatNumber(aiTools.length)}
-            detail={`${plugins.length} installed plugin${plugins.length === 1 ? '' : 's'} loaded`}
-          />
-          <MetricCard
-            icon={Package}
-            label="Marketplace plugins"
-            value={formatNumber(availablePlugins)}
-            detail={`${registryPlugins.length} visible in the registry`}
-          />
-          <MetricCard
-            icon={Database}
-            label="Saved chat tokens"
-            value={formatNumber(savedChatTokens)}
-            detail={`${savedChats.length} saved conversation${savedChats.length === 1 ? '' : 's'}`}
-          />
+        <div className="flex items-center justify-between gap-[var(--dd-space-4)]">
+          <h2 className="m-0 text-[1.22rem] font-extrabold text-[var(--dd-text-primary)]">
+            Quick Access
+          </h2>
+          <button
+            className="inline-flex h-10 items-center gap-[var(--dd-space-2)] rounded-[var(--dd-radius-md)] border border-[rgba(148,163,184,0.11)] bg-[rgba(255,255,255,0.045)] px-[var(--dd-space-4)] text-[0.92rem] text-[var(--dd-text-secondary)] transition-colors hover:text-[var(--dd-text-primary)]"
+            type="button"
+            onClick={onOpenStore}
+          >
+            <Edit3 size={16} aria-hidden="true" />
+            Customize
+          </button>
         </div>
 
-        <div className="grid min-h-[360px] gap-[var(--dd-space-5)] xl:grid-cols-[1.1fr_0.9fr]">
-          <article className={`${panel} grid gap-[var(--dd-space-5)] p-[var(--dd-space-5)]`}>
-            <div className="flex flex-wrap items-start justify-between gap-[var(--dd-space-4)]">
-              <div>
-                <h2 className="m-0 text-[1.1rem]">AI Usage</h2>
-                <p className="m-0 mt-[var(--dd-space-1)] text-[0.9rem] text-[var(--dd-text-muted)]">
-                  Local estimates, provider state, and recent chat activity.
-                </p>
-              </div>
-              <button className={secondaryButton} type="button" onClick={onOpenSettings}>
-                <Settings size={16} aria-hidden="true" />
-                AI Settings
-              </button>
-            </div>
+        <div className="grid gap-[var(--dd-space-3)] md:grid-cols-2 xl:grid-cols-5">
+          {quickCards.map((card) => (
+            <QuickAccessCard key={card.id} card={card} onClick={() => openQuickCard(card)} />
+          ))}
+        </div>
 
-            <div className="grid gap-[var(--dd-space-4)] md:grid-cols-[minmax(0,1fr)_260px]">
-              <div className="grid content-start gap-[var(--dd-space-4)]">
-                <div>
-                  <div className="mb-[var(--dd-space-2)] flex items-center justify-between gap-[var(--dd-space-3)] text-[0.86rem] text-[var(--dd-text-secondary)]">
-                    <span>Estimated context use</span>
-                    <strong className="text-[var(--dd-text-primary)]">{usagePercent}%</strong>
-                  </div>
-                  <div className="h-2 overflow-hidden rounded-full bg-[var(--dd-bg-elevated)]">
-                    <span
-                      className="block h-full rounded-full bg-[var(--dd-accent)]"
-                      style={{ width: `${usagePercent}%` }}
-                    />
-                  </div>
-                </div>
-
-                <div className="grid gap-[var(--dd-space-3)] sm:grid-cols-3">
-                  <CompactStat label="Messages" value={formatNumber(currentChatMessages)} />
-                  <CompactStat label="Assistant replies" value={formatNumber(assistantMessages)} />
-                  <CompactStat label="Saved chats" value={formatNumber(savedChats.length)} />
-                </div>
-
-                <div className="rounded-[var(--dd-radius-lg)] border border-[var(--dd-border)] bg-[var(--dd-bg-elevated)] p-[var(--dd-space-4)]">
-                  <span className="block text-[0.78rem] font-semibold uppercase tracking-[0.12em] text-[var(--dd-text-muted)]">
-                    Last saved chat
+        <div className="grid gap-[var(--dd-space-4)] xl:grid-cols-[1.05fr_1fr_1.05fr]">
+          <DashboardPanel title="Continue Working" action="View all" onAction={onOpenStore}>
+            <div className="grid gap-[var(--dd-space-3)]">
+              {sampleWork.map((item) => (
+                <button
+                  className="grid min-h-[58px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-[var(--dd-space-3)] rounded-[var(--dd-radius-md)] border border-[rgba(148,163,184,0.1)] bg-[rgba(255,255,255,0.025)] px-[var(--dd-space-3)] text-left transition-[border-color,background,transform] hover:-translate-y-px hover:border-[rgba(250,204,21,0.32)] hover:bg-[rgba(255,255,255,0.045)]"
+                  key={item.title}
+                  type="button"
+                  onClick={onOpenStore}
+                >
+                  <span className={`grid size-9 place-items-center rounded-[var(--dd-radius-sm)] ${item.color} text-[#0b1117]`}>
+                    <FileText size={18} aria-hidden="true" />
                   </span>
-                  <strong className="mt-[var(--dd-space-2)] block text-[var(--dd-text-primary)]">
-                    {lastSavedChat?.title ?? 'No saved chat yet'}
-                  </strong>
-                  <p className="m-0 mt-[var(--dd-space-1)] text-[0.88rem] text-[var(--dd-text-secondary)]">
-                    {lastSavedChat ? formatDate(lastSavedChat.updatedAt) : 'Save a chat to track it here.'}
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid content-start gap-[var(--dd-space-3)] rounded-[var(--dd-radius-lg)] border border-[rgba(250,204,21,0.22)] bg-[rgba(250,204,21,0.06)] p-[var(--dd-space-4)]">
-                <span className="grid size-10 place-items-center rounded-full bg-[rgba(250,204,21,0.14)] text-[var(--dd-accent)]">
-                  <Bot size={19} aria-hidden="true" />
-                </span>
-                <div>
-                  <span className="text-[0.8rem] text-[var(--dd-text-muted)]">Provider</span>
-                  <strong className="block text-[var(--dd-text-primary)]">
-                    {formatProvider(config.aiProvider)}
-                  </strong>
-                </div>
-                <div>
-                  <span className="text-[0.8rem] text-[var(--dd-text-muted)]">Model</span>
-                  <strong className="block break-words text-[var(--dd-text-primary)]">
-                    {config.aiModel || 'Not selected'}
-                  </strong>
-                </div>
-                <div>
-                  <span className="text-[0.8rem] text-[var(--dd-text-muted)]">API key</span>
-                  <strong className={config.apiKeyConfigured ? 'block text-[var(--dd-accent)]' : 'block text-[var(--dd-warning)]'}>
-                    {config.apiKeyConfigured ? 'Configured' : 'Needs setup'}
-                  </strong>
-                </div>
-              </div>
+                  <span className="min-w-0">
+                    <strong className="block truncate text-[0.94rem] text-[var(--dd-text-primary)]">
+                      {item.title}
+                    </strong>
+                    <small className="block truncate text-[0.82rem] text-[var(--dd-text-muted)]">
+                      {item.meta}
+                    </small>
+                  </span>
+                  <span className="rounded-full border border-[rgba(250,204,21,0.15)] bg-[rgba(250,204,21,0.08)] px-[var(--dd-space-3)] py-[var(--dd-space-1)] text-[0.82rem] font-bold text-[var(--dd-accent)]">
+                    Open
+                  </span>
+                </button>
+              ))}
             </div>
-          </article>
+          </DashboardPanel>
 
-          <article className={`${panel} grid content-start gap-[var(--dd-space-4)] p-[var(--dd-space-5)]`}>
-            <div className="flex items-start justify-between gap-[var(--dd-space-4)]">
-              <div>
-                <h2 className="m-0 text-[1.1rem]">Installed Plugins</h2>
-                <p className="m-0 mt-[var(--dd-space-1)] text-[0.9rem] text-[var(--dd-text-muted)]">
-                  Open a plugin or install more tools.
-                </p>
-              </div>
-              <button className={secondaryButton} type="button" onClick={onOpenStore}>
-                <Store size={16} aria-hidden="true" />
-                Store
-              </button>
+          <DashboardPanel title="Recent Chats" action="View all" onAction={onOpenAI}>
+            <div className="grid gap-[var(--dd-space-3)]">
+              {recentChats.map((chat) => (
+                <button
+                  className="grid min-h-[58px] grid-cols-[auto_minmax(0,1fr)] items-center gap-[var(--dd-space-3)] rounded-[var(--dd-radius-md)] border border-[rgba(148,163,184,0.1)] bg-[rgba(255,255,255,0.025)] px-[var(--dd-space-3)] text-left transition-[border-color,background,transform] hover:-translate-y-px hover:border-[rgba(250,204,21,0.32)] hover:bg-[rgba(255,255,255,0.045)]"
+                  key={`${chat.title}-${chat.time}`}
+                  type="button"
+                  onClick={onOpenAI}
+                >
+                  <span className="grid size-9 place-items-center rounded-full border border-[rgba(148,163,184,0.15)] bg-[rgba(255,255,255,0.04)] text-[var(--dd-text-secondary)]">
+                    <MessageSquare size={18} aria-hidden="true" />
+                  </span>
+                  <span className="min-w-0">
+                    <strong className="block truncate text-[0.92rem] text-[var(--dd-text-primary)]">
+                      {chat.title}
+                    </strong>
+                    <small className="block truncate text-[0.82rem] text-[var(--dd-text-muted)]">
+                      {chat.time}
+                    </small>
+                  </span>
+                </button>
+              ))}
             </div>
+          </DashboardPanel>
 
-            {plugins.length === 0 ? (
-              <div className="grid min-h-[220px] place-content-center justify-items-center rounded-[var(--dd-radius-lg)] border border-dashed border-[var(--dd-border)] bg-[var(--dd-bg-elevated)] p-[var(--dd-space-6)] text-center">
-                <Package className="mb-[var(--dd-space-3)] text-[var(--dd-accent)]" size={32} />
-                <strong>No plugins installed</strong>
-                <p className="m-0 mt-[var(--dd-space-2)] max-w-sm text-[0.9rem] text-[var(--dd-text-secondary)]">
-                  Install Notes or another plugin to add real workspace features.
-                </p>
-              </div>
-            ) : (
-              <ul className="m-0 grid list-none gap-[var(--dd-space-3)] p-0">
-                {plugins.slice(0, 6).map((plugin) => (
-                  <li key={plugin.id}>
-                    <button
-                      className="grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-[var(--dd-space-3)] rounded-[var(--dd-radius-lg)] border border-[var(--dd-border)] bg-[var(--dd-bg-elevated)] p-[var(--dd-space-3)] text-left transition-[background,border-color,transform] duration-150 hover:-translate-y-px hover:border-[var(--dd-border-strong)] hover:bg-[var(--dd-bg-hover)]"
-                      type="button"
-                      onClick={() => onOpenPlugin(plugin.id)}
-                    >
-                      <PluginIcon fallback={FileText} icon={plugin.icon} label={plugin.name} />
-                      <span className="min-w-0">
-                        <strong className="block truncate text-[var(--dd-text-primary)]">
-                          {plugin.name}
-                        </strong>
-                        <small className="block truncate text-[var(--dd-text-muted)]">
-                          {plugin.category ?? plugin.version}
-                        </small>
-                      </span>
-                      <span className="text-[0.8rem] font-semibold text-[var(--dd-accent)]">Open</span>
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </article>
+          <DashboardPanel title="Activity">
+            <div className="grid">
+              {sampleActivity.map((item) => {
+                const Icon = item.icon
+
+                return (
+                  <div
+                    className="grid min-h-[58px] grid-cols-[auto_auto_minmax(0,1fr)_auto] items-center gap-[var(--dd-space-3)] border-b border-[rgba(148,163,184,0.08)] last:border-b-0"
+                    key={`${item.label}-${item.time}`}
+                  >
+                    <span className={`size-2 rounded-full ${item.color}`} />
+                    <span className="grid size-8 place-items-center rounded-full border border-[rgba(148,163,184,0.12)] bg-[rgba(255,255,255,0.035)] text-[var(--dd-text-secondary)]">
+                      <Icon size={16} aria-hidden="true" />
+                    </span>
+                    <span className="truncate text-[0.9rem] text-[var(--dd-text-primary)]">
+                      {item.label}
+                    </span>
+                    <time className="whitespace-nowrap text-[0.82rem] text-[var(--dd-text-muted)]">
+                      {item.time}
+                    </time>
+                  </div>
+                )
+              })}
+            </div>
+          </DashboardPanel>
         </div>
 
-        <div className="grid gap-[var(--dd-space-4)] md:grid-cols-3">
-          <InsightCard
-            icon={Cpu}
-            title="Host State"
-            body={`${plugins.length} plugin${plugins.length === 1 ? '' : 's'}, ${aiTools.length} AI tool${aiTools.length === 1 ? '' : 's'}, ${registryPlugins.length} registry item${registryPlugins.length === 1 ? '' : 's'}.`}
-          />
-          <InsightCard
-            icon={MessageSquare}
-            title="Conversation Memory"
-            body={`${formatNumber(currentChatTokens + savedChatTokens)} estimated tokens across current and saved chat text.`}
-          />
-          <InsightCard
-            icon={WandSparkles}
-            title="Next Action"
-            body={config.apiKeyConfigured ? 'AI is ready for configured provider calls.' : 'Add an API key in Settings to enable real provider responses.'}
-          />
-        </div>
+        <footer className={`${panel} flex min-h-16 items-center justify-between gap-[var(--dd-space-4)] rounded-[var(--dd-radius-md)] px-[var(--dd-space-5)] py-[var(--dd-space-3)] max-[700px]:flex-col max-[700px]:items-start`}>
+          <div className="flex min-w-0 items-center gap-[var(--dd-space-3)] text-[0.95rem] text-[var(--dd-text-secondary)]">
+            <Sparkles className="shrink-0 text-[var(--dd-accent)]" size={18} aria-hidden="true" />
+            <span className="min-w-0">
+              Tip: Use AI Commands to automate repetitive tasks and save time.
+            </span>
+          </div>
+          <button
+            className="inline-flex items-center gap-[var(--dd-space-2)] text-[0.92rem] font-bold text-[var(--dd-accent)]"
+            type="button"
+            onClick={onOpenAI}
+          >
+            Learn More
+            <ChevronRight size={16} aria-hidden="true" />
+          </button>
+        </footer>
+
+        <span className="sr-only">
+          {availableCount} marketplace plugins are available for this DawnDesk workspace.
+        </span>
       </div>
     </section>
   )
 }
 
-function MetricCard({
-  detail,
+function MetricRow({
+  action,
   icon: Icon,
   label,
+  onClick,
+  status,
   value,
 }: {
-  detail: string
+  action?: string
   icon: LucideIcon
   label: string
+  onClick: () => void
+  status?: string
   value: string
 }) {
   return (
-    <article className={`${panel} grid gap-[var(--dd-space-4)] p-[var(--dd-space-4)]`}>
-      <span className="grid size-10 place-items-center rounded-[var(--dd-radius-md)] border border-[rgba(250,204,21,0.22)] bg-[rgba(250,204,21,0.08)] text-[var(--dd-accent)]">
-        <Icon size={19} aria-hidden="true" />
+    <button
+      className="grid w-full grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-[var(--dd-space-4)] text-left"
+      type="button"
+      onClick={onClick}
+    >
+      <span className="grid size-12 place-items-center rounded-full bg-[rgba(250,204,21,0.13)] text-[var(--dd-accent)] shadow-[inset_0_0_0_1px_rgba(250,204,21,0.18)]">
+        <Icon size={22} aria-hidden="true" />
       </span>
-      <div>
-        <span className="text-[0.82rem] text-[var(--dd-text-muted)]">{label}</span>
-        <strong className="block text-[1.9rem] leading-tight text-[var(--dd-text-primary)]">
+      <span className="min-w-0">
+        <span className="block text-[0.86rem] text-[var(--dd-text-muted)]">{label}</span>
+        <strong className="mt-1 block truncate text-[1.2rem] text-[var(--dd-text-primary)]">
           {value}
         </strong>
-        <p className="m-0 mt-[var(--dd-space-1)] text-[0.84rem] text-[var(--dd-text-secondary)]">
-          {detail}
-        </p>
-      </div>
-    </article>
+        {status ? (
+          <small className={status === 'Connected' ? 'text-[var(--dd-success)]' : 'text-[var(--dd-warning)]'}>
+            {status}
+          </small>
+        ) : null}
+      </span>
+      <span className="inline-flex items-center gap-[var(--dd-space-1)] text-[0.78rem] font-bold text-[var(--dd-accent)]">
+        {action}
+        <ChevronRight size={15} aria-hidden="true" />
+      </span>
+    </button>
   )
 }
 
-function CompactStat({ label, value }: { label: string; value: string }) {
+function QuickAccessCard({ card, onClick }: { card: QuickCard; onClick: () => void }) {
+  const Icon = card.icon
+
   return (
-    <div className="rounded-[var(--dd-radius-md)] border border-[var(--dd-border)] bg-[var(--dd-bg-elevated)] p-[var(--dd-space-3)]">
-      <span className="block text-[0.78rem] text-[var(--dd-text-muted)]">{label}</span>
-      <strong className="mt-[var(--dd-space-1)] block text-[1.2rem] text-[var(--dd-text-primary)]">
-        {value}
-      </strong>
-    </div>
+    <button
+      className={`${panel} grid min-h-[120px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-[var(--dd-space-4)] rounded-[var(--dd-radius-md)] p-[var(--dd-space-4)] text-left transition-[border-color,background,transform] hover:-translate-y-1 hover:border-[rgba(250,204,21,0.32)] hover:bg-[rgba(16,22,28,0.9)]`}
+      type="button"
+      onClick={onClick}
+    >
+      <span className={`grid size-11 place-items-center rounded-[var(--dd-radius-sm)] bg-gradient-to-br ${card.color} text-white shadow-[0_14px_26px_rgba(0,0,0,0.28)]`}>
+        <Icon size={22} aria-hidden="true" />
+      </span>
+      <span className="min-w-0">
+        <strong className="block truncate text-[1rem] text-[var(--dd-text-primary)]">
+          {card.title}
+        </strong>
+        <span className="mt-[var(--dd-space-2)] block max-w-32 text-[0.84rem] leading-5 text-[var(--dd-text-secondary)]">
+          {card.description}
+        </span>
+      </span>
+      <ChevronRight className="text-[var(--dd-text-muted)]" size={18} aria-hidden="true" />
+    </button>
   )
 }
 
-function InsightCard({
-  body,
-  icon: Icon,
+function DashboardPanel({
+  action,
+  children,
+  onAction,
   title,
 }: {
-  body: string
-  icon: LucideIcon
+  action?: string
+  children: ReactNode
+  onAction?: () => void
   title: string
 }) {
   return (
-    <article className={`${panel} grid grid-cols-[auto_minmax(0,1fr)] gap-[var(--dd-space-3)] p-[var(--dd-space-4)]`}>
-      <span className="grid size-9 place-items-center rounded-[var(--dd-radius-md)] bg-[var(--dd-bg-elevated)] text-[var(--dd-accent)]">
-        <Icon size={17} aria-hidden="true" />
-      </span>
-      <div>
-        <strong className="block text-[var(--dd-text-primary)]">{title}</strong>
-        <p className="m-0 mt-[var(--dd-space-1)] text-[0.88rem] leading-6 text-[var(--dd-text-secondary)]">
-          {body}
-        </p>
+    <article className={`${panel} rounded-[var(--dd-radius-md)] p-[var(--dd-space-4)]`}>
+      <div className="mb-[var(--dd-space-4)] flex items-center justify-between gap-[var(--dd-space-4)]">
+        <h2 className="m-0 text-[1.04rem] font-extrabold text-[var(--dd-text-primary)]">{title}</h2>
+        {action && onAction ? (
+          <button
+            className="text-[0.82rem] font-bold text-[var(--dd-accent)]"
+            type="button"
+            onClick={onAction}
+          >
+            {action}
+          </button>
+        ) : null}
       </div>
+      {children}
     </article>
   )
 }
 
-function estimateTokens(text: string) {
-  const normalized = text.trim()
-  if (!normalized) return 0
+function buildRecentChats(savedChats: SavedChat[], messages: ChatMessage[]) {
+  const saved = savedChats.slice(0, 3).map((chat) => ({
+    time: formatRelativeTime(chat.updatedAt),
+    title: chat.title,
+  }))
 
-  return Math.ceil(normalized.length / 4)
-}
+  if (saved.length >= 3) return saved
 
-function formatNumber(value: number) {
-  return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(value)
+  const currentUserMessage = messages.find((message) => message.role === 'user' && message.content.trim())
+  const fallback = [
+    { title: currentUserMessage?.content.slice(0, 42) || 'Help me optimize this code', time: '2h ago' },
+    { title: 'Summarize this document', time: 'Yesterday' },
+    { title: 'Create a content calendar', time: '2 days ago' },
+  ]
+
+  return [...saved, ...fallback].slice(0, 3)
 }
 
 function formatProvider(provider: AppConfig['aiProvider']) {
@@ -364,14 +450,21 @@ function formatProvider(provider: AppConfig['aiProvider']) {
   return labels[provider]
 }
 
-function formatDate(value: string) {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return 'Recently saved'
+function formatNumber(value: number) {
+  return new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 }).format(value)
+}
 
-  return date.toLocaleDateString(undefined, {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
+function formatRelativeTime(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'Recently'
+
+  const elapsed = Date.now() - date.getTime()
+  const minute = 60 * 1000
+  const hour = 60 * minute
+  const day = 24 * hour
+
+  if (elapsed < hour) return `${Math.max(1, Math.round(elapsed / minute))}m ago`
+  if (elapsed < day) return `${Math.round(elapsed / hour)}h ago`
+  if (elapsed < 2 * day) return 'Yesterday'
+  return `${Math.round(elapsed / day)} days ago`
 }
