@@ -1,4 +1,7 @@
-use crate::settings::config::{AiProvider, AppConfig};
+use crate::{
+    ai::registry::ToolDefinition,
+    settings::config::{AiProvider, AppConfig},
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -25,9 +28,16 @@ struct OllamaChatMessage {
     content: String,
 }
 
-pub fn chat(config: &AppConfig, messages: &[ChatMessage], stream: bool) -> Result<String, String> {
+pub fn chat(
+    config: &AppConfig,
+    messages: &[ChatMessage],
+    stream: bool,
+    tools: &[ToolDefinition],
+) -> Result<String, String> {
+    let messages_with_tools = with_plugin_tool_context(messages, tools)?;
+
     match config.ai_provider {
-        AiProvider::OllamaCloud => chat_ollama_cloud(config, messages, stream),
+        AiProvider::OllamaCloud => chat_ollama_cloud(config, &messages_with_tools, stream),
         AiProvider::Anthropic => {
             Err("Anthropic chat is not implemented yet. Select Ollama Cloud for now.".to_string())
         }
@@ -35,6 +45,29 @@ pub fn chat(config: &AppConfig, messages: &[ChatMessage], stream: bool) -> Resul
             Err("OpenAI chat is not implemented yet. Select Ollama Cloud for now.".to_string())
         }
     }
+}
+
+fn with_plugin_tool_context(
+    messages: &[ChatMessage],
+    tools: &[ToolDefinition],
+) -> Result<Vec<ChatMessage>, String> {
+    if tools.is_empty() {
+        return Ok(messages.to_vec());
+    }
+
+    let tools_json = serde_json::to_string_pretty(tools)
+        .map_err(|error| format!("Failed to prepare plugin tools for AI context: {error}"))?;
+    let mut enriched = Vec::with_capacity(messages.len() + 1);
+
+    enriched.push(ChatMessage {
+        role: "system".to_string(),
+        content: format!(
+            "You are DawnDesk's host AI. Installed plugins expose these tool definitions through plugin.manifest.json. Use them when they match the user's request, ask for missing required arguments, and format any proposed tool call as a fenced JSON block with pluginId, name, and arguments. Available plugin tools:\n{tools_json}"
+        ),
+    });
+    enriched.extend_from_slice(messages);
+
+    Ok(enriched)
 }
 
 fn chat_ollama_cloud(

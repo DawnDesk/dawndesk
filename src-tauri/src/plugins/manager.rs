@@ -56,6 +56,7 @@ pub fn list_plugins(config: &AppConfig) -> Result<Vec<PluginMeta>, String> {
             .unwrap_or_else(|| entry.path());
         let manifest = read_manifest(&manifest_path)?;
         let entry_path = plugin_dir.join("index.html");
+        let icon = resolve_plugin_icon(&plugin_dir, manifest.icon.as_deref())?;
         plugins.push(PluginMeta {
             id: manifest.id,
             name: manifest.name,
@@ -64,7 +65,7 @@ pub fn list_plugins(config: &AppConfig) -> Result<Vec<PluginMeta>, String> {
             enabled: true,
             installed_at: "local".to_string(),
             category: manifest.category,
-            icon: manifest.icon,
+            icon,
             entry_path: entry_path
                 .exists()
                 .then(|| entry_path.to_string_lossy().to_string()),
@@ -400,6 +401,79 @@ fn find_manifest_dir(root: &Path) -> Option<PathBuf> {
 
 fn find_manifest_path(root: &Path) -> Option<PathBuf> {
     find_manifest_dir(root).map(|path| path.join("plugin.manifest.json"))
+}
+
+fn resolve_plugin_icon(plugin_dir: &Path, icon: Option<&str>) -> Result<Option<String>, String> {
+    let Some(icon) = icon.map(str::trim).filter(|value| !value.is_empty()) else {
+        return Ok(None);
+    };
+
+    if icon.starts_with("http://") || icon.starts_with("https://") || icon.starts_with("data:") {
+        return Ok(Some(icon.to_string()));
+    }
+
+    let normalized_icon = icon
+        .strip_prefix("./")
+        .or_else(|| icon.strip_prefix('/'))
+        .unwrap_or(icon);
+    let icon_path = plugin_dir.join(normalized_icon);
+
+    if !icon_path.exists() {
+        return Ok(None);
+    }
+
+    let bytes = fs::read(&icon_path).map_err(|error| {
+        format!(
+            "Failed to read plugin icon '{}': {error}",
+            icon_path.display()
+        )
+    })?;
+    let mime = match icon_path
+        .extension()
+        .and_then(|extension| extension.to_str())
+        .map(str::to_ascii_lowercase)
+        .as_deref()
+    {
+        Some("svg") => "image/svg+xml",
+        Some("png") => "image/png",
+        Some("jpg") | Some("jpeg") => "image/jpeg",
+        Some("webp") => "image/webp",
+        Some("gif") => "image/gif",
+        _ => "application/octet-stream",
+    };
+
+    Ok(Some(format!(
+        "data:{mime};base64,{}",
+        encode_base64(&bytes)
+    )))
+}
+
+fn encode_base64(bytes: &[u8]) -> String {
+    const TABLE: &[u8; 64] = b"ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+    let mut encoded = String::with_capacity(bytes.len().div_ceil(3) * 4);
+
+    for chunk in bytes.chunks(3) {
+        let first = chunk[0];
+        let second = *chunk.get(1).unwrap_or(&0);
+        let third = *chunk.get(2).unwrap_or(&0);
+
+        encoded.push(TABLE[(first >> 2) as usize] as char);
+        encoded.push(TABLE[(((first & 0b0000_0011) << 4) | (second >> 4)) as usize] as char);
+
+        if chunk.len() > 1 {
+            encoded.push(TABLE[(((second & 0b0000_1111) << 2) | (third >> 6)) as usize] as char);
+        } else {
+            encoded.push('=');
+        }
+
+        if chunk.len() > 2 {
+            encoded.push(TABLE[(third & 0b0011_1111) as usize] as char);
+        } else {
+            encoded.push('=');
+        }
+    }
+
+    encoded
 }
 
 fn patch_plugin_entrypoint(plugin_dir: &Path, plugin_id: &str) -> Result<(), String> {

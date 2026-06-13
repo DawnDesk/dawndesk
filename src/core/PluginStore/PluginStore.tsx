@@ -13,6 +13,7 @@ import {
   Video,
   type LucideIcon,
 } from 'lucide-react'
+import { PluginIcon } from '../PluginIcon'
 import type {
   PluginDownloadProgress,
   PluginMeta,
@@ -31,6 +32,10 @@ type PluginStoreProps = {
   registryPlugins: RegistryPlugin[]
 }
 
+const primaryButton =
+  'inline-flex min-h-[38px] items-center justify-center gap-[var(--dd-space-2)] justify-self-start rounded-[var(--dd-radius-md)] border border-transparent bg-[var(--dd-accent)] px-[var(--dd-space-4)] py-[var(--dd-space-2)] font-extrabold text-[var(--dd-accent-contrast)] shadow-[var(--dd-shadow-sm)] transition-[background,color,transform,border-color] duration-150 hover:-translate-y-px hover:bg-[var(--dd-accent-hover)] active:scale-[0.98] active:bg-[var(--dd-accent-active)] disabled:cursor-not-allowed disabled:opacity-70'
+const secondaryButton =
+  'inline-flex min-h-[38px] items-center justify-center gap-[var(--dd-space-2)] justify-self-start rounded-[var(--dd-radius-md)] border border-[var(--dd-border)] bg-[var(--dd-control-bg)] px-[var(--dd-space-4)] py-[var(--dd-space-2)] text-[var(--dd-text-secondary)] transition-[background,color,transform,border-color] duration-150 hover:-translate-y-px hover:border-[var(--dd-border-strong)] hover:text-[var(--dd-text-primary)] disabled:cursor-not-allowed disabled:opacity-70'
 export function PluginStore({
   busyPluginId,
   installedPlugins,
@@ -42,24 +47,36 @@ export function PluginStore({
   registryPlugins,
 }: PluginStoreProps) {
   return (
-    <section className="storePage">
-      <div className="storeToolbar">
-        <label className="storeSearch">
-          <Search size={16} aria-hidden="true" />
-          <input aria-label="Search plugins" placeholder="Search plugins..." />
+    <section className="grid gap-[var(--dd-space-5)] p-[var(--dd-space-5)]">
+      <div className="grid grid-cols-[minmax(280px,1fr)_220px_auto] gap-[var(--dd-space-3)] max-[900px]:grid-cols-1">
+        <label className="relative block">
+          <Search
+            className="absolute left-[var(--dd-space-3)] top-1/2 -translate-y-1/2 text-[var(--dd-text-muted)]"
+            size={16}
+            aria-hidden="true"
+          />
+          <input
+            className="min-h-[42px] w-full rounded-[var(--dd-radius-md)] border border-[var(--dd-border)] bg-[var(--dd-bg-base)] py-0 pl-[var(--dd-space-8)] pr-[var(--dd-space-3)] text-[var(--dd-text-primary)]"
+            aria-label="Search plugins"
+            placeholder="Search plugins..."
+          />
         </label>
-        <select aria-label="Plugin category" defaultValue="all">
+        <select
+          className="min-h-[42px] rounded-[var(--dd-radius-md)] border border-[var(--dd-border)] bg-[var(--dd-bg-base)] px-[var(--dd-space-3)] py-0 text-[var(--dd-text-primary)]"
+          aria-label="Plugin category"
+          defaultValue="all"
+        >
           <option value="all">All Categories</option>
           <option value="productivity">Productivity</option>
           <option value="media">Media</option>
           <option value="developer">Developer</option>
         </select>
-        <button className="secondaryButton" type="button">
+        <button className={secondaryButton} type="button">
           <RefreshCw size={15} aria-hidden="true" />
           Refresh
         </button>
       </div>
-      <div className="storeGrid">
+      <div className="grid grid-cols-[repeat(auto-fill,minmax(220px,1fr))] gap-[var(--dd-space-4)]">
         {registryPlugins.map((plugin) => {
           const installedPlugin = installedPlugins.find((item) => item.id === plugin.id)
           const release = pickRelease(plugin.releases)
@@ -67,36 +84,50 @@ export function PluginStore({
           const progress = progressByPluginId[plugin.id]
           const error = pluginErrors[plugin.id]
           const Icon = getPluginIcon(plugin)
+          const icon = installedPlugin?.icon ?? plugin.icon
 
           return (
-            <article className="storeCard" key={plugin.id}>
-              <div className="storeCardTop">
-                <span className="pluginIcon large" aria-hidden="true">
-                  <Icon size={22} />
-                </span>
+            <article
+              className="grid min-h-[206px] grid-rows-[auto_1fr_auto_auto] gap-[var(--dd-space-3)] rounded-[var(--dd-radius-md)] border border-[var(--dd-border)] bg-[linear-gradient(180deg,var(--dd-panel-sheen),transparent),var(--dd-bg-surface)] p-[var(--dd-space-5)] shadow-[var(--dd-shadow-md)] animate-[panelIn_260ms_ease_both]"
+              key={plugin.id}
+            >
+              <div className="flex items-center justify-start gap-[var(--dd-space-4)]">
+                <PluginIcon fallback={Icon} icon={icon} label={plugin.name} size="md" />
                 <div>
-                  <h2>{plugin.name}</h2>
-                  <span>{plugin.category ?? 'plugin'}</span>
+                  <h2 className="m-0 text-base">{plugin.name}</h2>
+                  <span className="text-[0.78rem] text-[var(--dd-text-muted)]">
+                    {plugin.category ?? 'plugin'}
+                  </span>
                 </div>
               </div>
-              <p>{plugin.description}</p>
-              <div className="pluginMetaRow">
+              <p className="m-0 max-w-xl text-[var(--dd-text-secondary)]">
+                {plugin.description}
+              </p>
+              <div className="flex flex-wrap gap-[var(--dd-space-2)] text-[0.8rem] text-[var(--dd-text-muted)]">
                 <span>v{plugin.latestVersion}</span>
                 {plugin.verified && <span>Verified</span>}
                 {release && <span>{release.platform}</span>}
               </div>
               {plugin.tags && plugin.tags.length > 0 && (
-                <div className="tagList" aria-label={`${plugin.name} tags`}>
+                <div
+                  className="flex flex-wrap gap-[var(--dd-space-2)] text-[0.8rem] text-[var(--dd-text-muted)]"
+                  aria-label={`${plugin.name} tags`}
+                >
                   {plugin.tags.slice(0, 4).map((tag) => (
-                    <span key={tag}>{tag}</span>
+                    <span
+                      className="rounded-[var(--dd-radius-sm)] border border-[var(--dd-border)] bg-[var(--dd-chip-bg)] px-[var(--dd-space-2)] py-[var(--dd-space-1)]"
+                      key={tag}
+                    >
+                      {tag}
+                    </span>
                   ))}
                 </div>
               )}
-              <div className="storeActions">
+              <div className="flex flex-wrap gap-[var(--dd-space-2)]">
                 {installedPlugin ? (
                   <>
                     <button
-                      className="primaryButton"
+                      className={primaryButton}
                       disabled={isBusy}
                       type="button"
                       onClick={() => onOpen(plugin.id)}
@@ -105,7 +136,7 @@ export function PluginStore({
                       Open
                     </button>
                     <button
-                      className="secondaryButton dangerButton"
+                      className={`${secondaryButton} text-[var(--dd-danger)]`}
                       disabled={isBusy}
                       type="button"
                       onClick={() => onDelete(plugin.id)}
@@ -116,7 +147,7 @@ export function PluginStore({
                   </>
                 ) : (
                   <button
-                    className="primaryButton"
+                    className={primaryButton}
                     disabled={!release || isBusy}
                     type="button"
                     onClick={() => release && onInstall(plugin, release)}
@@ -127,17 +158,23 @@ export function PluginStore({
                 )}
               </div>
               {progress && (
-                <div className="downloadProgress" aria-label={`${plugin.name} download progress`}>
-                  <div className="progressMeta">
+                <div
+                  className="grid gap-[var(--dd-space-2)]"
+                  aria-label={`${plugin.name} download progress`}
+                >
+                  <div className="flex flex-wrap justify-between gap-[var(--dd-space-2)] text-[0.8rem] text-[var(--dd-text-muted)]">
                     <span>{formatStatus(progress.status)}</span>
                     <span>{Math.round(progress.progress)}%</span>
                   </div>
-                  <div className="progressTrack">
-                    <span style={{ width: `${Math.round(progress.progress)}%` }} />
+                  <div className="h-[var(--dd-space-2)] overflow-hidden rounded-[var(--dd-radius-sm)] bg-[var(--dd-bg-elevated)]">
+                    <span
+                      className="block h-full rounded-[inherit] bg-[var(--dd-accent)] transition-[width] duration-150"
+                      style={{ width: `${Math.round(progress.progress)}%` }}
+                    />
                   </div>
                 </div>
               )}
-              {error && <p className="pluginError">{error}</p>}
+              {error && <p className="m-0 text-[0.86rem] text-[var(--dd-danger)]">{error}</p>}
             </article>
           )
         })}

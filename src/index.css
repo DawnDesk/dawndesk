@@ -1,10 +1,24 @@
 @import 'tailwindcss';
 
 :root {
-  --dd-bg-base: #080a0c;
-  --dd-bg-surface: #101316;
-  --dd-bg-elevated: #171b20;
-  --dd-bg-hover: #20252b;
+  --dd-bg-base: #050607;
+  --dd-bg-surface: #090b0d;
+  --dd-bg-elevated: #191b1e;
+  --dd-bg-hover: #202225;
+  --dd-bg-glow: rgba(250, 204, 21, 0.04);
+  --dd-bg-content: rgba(250, 204, 21, 0.018);
+  --dd-sidebar-sheen: rgba(255, 255, 255, 0.025);
+  --dd-panel-sheen: rgba(255, 255, 255, 0.018);
+  --dd-card-sheen: rgba(255, 255, 255, 0.035);
+  --dd-control-bg: rgba(21, 23, 26, 0.86);
+  --dd-chip-bg: rgba(10, 12, 15, 0.48);
+  --dd-message-bg: transparent;
+  --dd-message-user-bg: #242322;
+  --dd-command-bg: #191b1e;
+  --dd-command-bg-hover: #202225;
+  --dd-composer-bg: #202020;
+  --dd-stream-border: rgba(242, 194, 48, 0.36);
+  --dd-stream-ring: rgba(242, 194, 48, 0.08);
   --dd-text-primary: #f8fafc;
   --dd-text-secondary: #cbd5e1;
   --dd-text-muted: #64748b;
@@ -12,7 +26,10 @@
   --dd-accent-hover: #eab308;
   --dd-accent-active: #ca8a04;
   --dd-accent-muted: rgba(250, 204, 21, 0.14);
+  --dd-accent-muted-strong: rgba(242, 194, 48, 0.13);
+  --dd-accent-muted-soft: rgba(242, 194, 48, 0.035);
   --dd-accent-contrast: #080a0c;
+  --dd-focus-ring: rgba(242, 194, 48, 0.16);
   --dd-border: #2b3138;
   --dd-border-soft: #1c2228;
   --dd-border-strong: #475569;
@@ -41,6 +58,12 @@
   --dd-shadow-md: 0 8px 24px rgba(0, 0, 0, 0.35);
   --dd-shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.45);
   --dd-shadow-yellow: 0 0 24px rgba(250, 204, 21, 0.18);
+  --dd-logo-glow: rgba(250, 204, 21, 0.22);
+  --dd-logo-wash: rgba(250, 204, 21, 0.12);
+  --dd-logo-wash-soft: rgba(250, 204, 21, 0.03);
+  --dd-plugin-icon-glow: rgba(242, 194, 48, 0.16);
+  --dd-plugin-icon-glow-soft: rgba(242, 194, 48, 0.04);
+  --dd-shimmer: rgba(255, 255, 255, 0.26);
   font-family: var(--dd-font-body);
   color: var(--dd-text-primary);
   background: var(--dd-bg-base);

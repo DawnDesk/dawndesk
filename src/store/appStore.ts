@@ -1,4 +1,4 @@
-export type View = 'workspace' | 'store' | 'ai' | 'settings'
+export type View = 'dashboard' | 'workspace' | 'store' | 'ai' | 'settings'
 
 export type PluginMeta = {
   id: string
@@ -71,6 +71,15 @@ export type ChatMessage = {
   id: string
   role: 'user' | 'assistant'
   content: string
+}
+
+export type ChatAttachment = {
+  id: string
+  content?: string
+  kind: 'binary' | 'text'
+  name: string
+  size: number
+  type: string
 }
 
 export type SavedChat = {

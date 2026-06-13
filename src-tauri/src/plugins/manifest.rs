@@ -12,6 +12,7 @@ pub struct PluginManifest {
     pub category: Option<String>,
     pub icon: Option<String>,
     pub ai_tools: Option<Vec<ManifestTool>>,
+    pub sidecar: Option<ManifestSidecar>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -20,6 +21,12 @@ pub struct ManifestTool {
     pub name: String,
     pub description: String,
     pub input_schema: Value,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ManifestSidecar {
+    pub binary: String,
 }
 
 pub fn read_manifest(path: &Path) -> Result<PluginManifest, String> {

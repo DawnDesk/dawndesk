@@ -1,12 +1,15 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { listen } from '@tauri-apps/api/event'
+import { AlertTriangle, CheckCircle2, Info, X, XCircle, type LucideIcon } from 'lucide-react'
 import { AIPanel } from './core/AIPanel/AIPanel'
+import { Dashboard } from './core/Dashboard/Dashboard'
 import { PluginShell } from './core/PluginShell/PluginShell'
 import { PluginStore } from './core/PluginStore/PluginStore'
 import { Settings } from './core/Settings/Settings'
 import { Sidebar } from './core/Sidebar/Sidebar'
 import {
   getSettings,
+  getTools,
   installPlugin,
   listPlugins,
   saveSettings,
@@ -18,6 +21,7 @@ import {
   fallbackPlugins,
   initialMessages,
   type AppConfig,
+  type ChatAttachment,
   type ChatMessage,
   type PluginMeta,
   type PluginRegistry,
@@ -25,6 +29,7 @@ import {
   type RegistryPlugin,
   type RegistryRelease,
   type SavedChat,
+  type ToolDefinition,
   type View,
 } from './store/appStore'
 import './App.css'
@@ -35,8 +40,31 @@ const registryUrls = [
   'https://cdn.jsdelivr.net/gh/DawnDesk/registry@main/index.json',
 ]
 
+type ToastKind = 'error' | 'info' | 'success' | 'warning'
+
+type ToastMessage = {
+  id: string
+  kind: ToastKind
+  title: string
+  detail?: string
+}
+
+const toastIcons: Record<ToastKind, LucideIcon> = {
+  error: XCircle,
+  info: Info,
+  success: CheckCircle2,
+  warning: AlertTriangle,
+}
+
+const toastStyles: Record<ToastKind, string> = {
+  error: 'border-[rgba(250,204,21,0.42)] text-[var(--dd-accent)]',
+  info: 'border-[rgba(250,204,21,0.42)] text-[var(--dd-accent)]',
+  success: 'border-[rgba(250,204,21,0.42)] text-[var(--dd-accent)]',
+  warning: 'border-[rgba(250,204,21,0.42)] text-[var(--dd-accent)]',
+}
+
 function App() {
-  const [view, setView] = useState<View>('workspace')
+  const [view, setView] = useState<View>('dashboard')
   const [plugins, setPlugins] = useState<PluginMeta[]>([])
   const [registryPlugins, setRegistryPlugins] = useState<RegistryPlugin[]>([])
   const [activePluginId, setActivePluginId] = useState<string | null>(null)
@@ -52,15 +80,36 @@ function App() {
     {},
   )
   const [pluginErrors, setPluginErrors] = useState<Record<string, string>>({})
+  const [aiTools, setAiTools] = useState<ToolDefinition[]>([])
+  const [toasts, setToasts] = useState<ToastMessage[]>([])
+  const [attachments, setAttachments] = useState<ChatAttachment[]>([])
+
+  const dismissToast = useCallback((id: string) => {
+    setToasts((current) => current.filter((toast) => toast.id !== id))
+  }, [])
+
+  const showToast = useCallback(
+    (kind: ToastKind, title: string, detail?: string) => {
+      const id = crypto.randomUUID()
+      setToasts((current) => [...current, { id, kind, title, detail }].slice(-5))
+      window.setTimeout(() => dismissToast(id), kind === 'error' ? 7000 : 4200)
+    },
+    [dismissToast],
+  )
+
+  const setStatus = useCallback((message: string, kind: ToastKind = 'info', detail?: string) => {
+    showToast(kind, message, detail)
+  }, [showToast])
 
   useEffect(() => {
     let alive = true
 
     async function load() {
-      const [pluginResult, configResult, registryResult] = await Promise.allSettled([
+      const [pluginResult, configResult, registryResult, toolsResult] = await Promise.allSettled([
         listPlugins(),
         getSettings(),
         fetchRegistry(),
+        getTools(),
       ])
 
       if (!alive) return
@@ -70,14 +119,27 @@ function App() {
       setPlugins(loadedPlugins)
       setActivePluginId(null)
       setConfig(configResult.status === 'fulfilled' ? configResult.value : fallbackConfig)
+      setAiTools(toolsResult.status === 'fulfilled' ? toolsResult.value : [])
       setRegistryPlugins(
         registryResult.status === 'fulfilled' ? registryResult.value.plugins : fallbackRegistry(),
       )
-      setStatus(
-        registryResult.status === 'fulfilled'
-          ? 'Plugin registry loaded'
-          : 'Registry unavailable, showing cached defaults',
-      )
+      if (registryResult.status === 'fulfilled') {
+        setStatus('Plugin registry loaded', 'success')
+      } else {
+        setStatus('Registry unavailable', 'warning', 'Showing cached plugin defaults for now.')
+      }
+
+      if (pluginResult.status === 'rejected') {
+        setStatus('Installed plugins unavailable', 'error', formatError(pluginResult.reason, 'Failed to list plugins'))
+      }
+
+      if (configResult.status === 'rejected') {
+        setStatus('Settings unavailable', 'warning', 'Using default settings for this session.')
+      }
+
+      if (toolsResult.status === 'rejected') {
+        setStatus('Plugin tools unavailable', 'warning', 'AI can still chat, but tool metadata could not be loaded.')
+      }
     }
 
     load()
@@ -85,7 +147,7 @@ function App() {
     return () => {
       alive = false
     }
-  }, [])
+  }, [setStatus])
 
   useEffect(() => {
     let unlisten: (() => void) | null = null
@@ -99,14 +161,15 @@ function App() {
       .then((handler) => {
         unlisten = handler
       })
-      .catch(() => {
+      .catch((error) => {
         unlisten = null
+        setStatus('Plugin progress listener failed', 'warning', formatError(error, 'Unable to listen for plugin progress.'))
       })
 
     return () => {
       unlisten?.()
     }
-  }, [])
+  }, [setStatus])
 
   useEffect(() => {
     localStorage.setItem(savedChatsStorageKey, JSON.stringify(savedChats))
@@ -119,12 +182,14 @@ function App() {
 
   async function sendMessage() {
     const prompt = draft.trim()
-    if (!prompt || isGenerating) return
+    if ((!prompt && attachments.length === 0) || isGenerating) return
+
+    const messageContent = formatMessageWithAttachments(prompt, attachments)
 
     const userMessage: ChatMessage = {
       id: crypto.randomUUID(),
       role: 'user',
-      content: prompt,
+      content: messageContent,
     }
     const assistantMessage: ChatMessage = {
       id: crypto.randomUUID(),
@@ -139,9 +204,10 @@ function App() {
       return nextMessages
     })
     setDraft('')
+    setAttachments([])
     setIsGenerating(true)
     setStreamingMessageId(assistantMessage.id)
-    setStatus('Generating AI response')
+    setStatus('Generating AI response', 'info')
 
     try {
       const response = await sendAIMessage(
@@ -149,17 +215,65 @@ function App() {
       )
 
       await streamAssistantMessage(assistantMessage.id, response)
-      setStatus('AI response complete')
-    } catch {
+      setStatus('AI response complete', 'success')
+    } catch (error) {
       await streamAssistantMessage(
         assistantMessage.id,
         'AI provider wiring is available, but no configured provider responded yet. Add an API key in Settings when provider integration is enabled.',
       )
-      setStatus('AI response used local fallback')
+      setStatus('AI response used local fallback', 'warning', formatError(error, 'No configured provider responded.'))
     } finally {
       setIsGenerating(false)
       setStreamingMessageId(null)
     }
+  }
+
+  async function attachFiles(fileList: FileList | File[]) {
+    const files = Array.from(fileList)
+    if (files.length === 0) return
+
+    const nextAttachments: ChatAttachment[] = []
+
+    for (const file of files) {
+      if (file.size > 8 * 1024 * 1024) {
+        setStatus('File skipped', 'warning', `${file.name} is larger than 8 MB.`)
+        continue
+      }
+
+      const type = file.type || guessMimeType(file.name)
+      const readableAsText = isTextAttachment(file.name, type)
+      let content: string | undefined
+
+      if (readableAsText) {
+        try {
+          content = await file.text()
+        } catch (error) {
+          setStatus('File could not be read', 'error', formatError(error, file.name))
+          continue
+        }
+      }
+
+      nextAttachments.push({
+        id: crypto.randomUUID(),
+        content,
+        kind: readableAsText ? 'text' : 'binary',
+        name: file.name,
+        size: file.size,
+        type,
+      })
+    }
+
+    if (nextAttachments.length === 0) return
+
+    setAttachments((current) => [...current, ...nextAttachments].slice(-8))
+    setStatus(
+      nextAttachments.length === 1 ? 'File attached' : `${nextAttachments.length} files attached`,
+      'success',
+    )
+  }
+
+  function removeAttachment(id: string) {
+    setAttachments((current) => current.filter((attachment) => attachment.id !== id))
   }
 
   async function streamAssistantMessage(messageId: string, content: string) {
@@ -192,7 +306,7 @@ function App() {
           chat.id === activeChatId ? { ...chat, title, updatedAt: now, messages } : chat,
         ),
       )
-      setStatus(`Saved ${title}`)
+      setStatus(`Saved ${title}`, 'success')
       return
     }
 
@@ -205,13 +319,13 @@ function App() {
 
     setSavedChats((current) => [chat, ...current])
     setActiveChatId(chat.id)
-    setStatus(`Saved ${title}`)
+    setStatus(`Saved ${title}`, 'success')
   }
 
   function openSavedChat(chat: SavedChat) {
     setMessages(chat.messages)
     setActiveChatId(chat.id)
-    setStatus(`Opened ${chat.title}`)
+    setStatus(`Opened ${chat.title}`, 'info')
   }
 
   function deleteSavedChat(id: string) {
@@ -220,14 +334,19 @@ function App() {
       setActiveChatId(null)
       setMessages(initialMessages)
     }
-    setStatus('Saved chat deleted')
+    setStatus('Saved chat deleted', 'success')
   }
 
   function startNewChat() {
     setActiveChatId(null)
     setMessages(initialMessages)
     setDraft('')
-    setStatus('New chat ready')
+    setStatus('New chat ready', 'info')
+  }
+
+  function openPlugin(id: string) {
+    setActivePluginId(id)
+    setView('workspace')
   }
 
   function updateActiveSavedChat(nextMessages: ChatMessage[]) {
@@ -250,13 +369,13 @@ function App() {
 
   async function saveConfig(nextConfig: AppConfig) {
     setConfig(nextConfig)
-    setStatus('Saving settings')
+    setStatus('Saving settings', 'info')
 
     try {
       await saveSettings(nextConfig)
-      setStatus('Settings saved')
+      setStatus('Settings saved', 'success')
     } catch {
-      setStatus('Settings changed locally')
+      setStatus('Settings changed locally', 'warning', 'The desktop host did not confirm the save.')
     }
   }
 
@@ -264,6 +383,7 @@ function App() {
     const loadedPlugins = await listPlugins()
 
     setPlugins(loadedPlugins)
+    refreshAiTools()
 
     if (nextActiveId !== undefined) {
       setActivePluginId(nextActiveId)
@@ -278,6 +398,14 @@ function App() {
     return loadedPlugins
   }
 
+  async function refreshAiTools() {
+    try {
+      setAiTools(await getTools())
+    } catch {
+      setAiTools([])
+    }
+  }
+
   async function installFromRegistry(plugin: RegistryPlugin, release: RegistryRelease) {
     setBusyPluginId(plugin.id)
     setPluginErrors((current) => {
@@ -285,7 +413,7 @@ function App() {
       delete next[plugin.id]
       return next
     })
-    setStatus(`Downloading ${plugin.name}`)
+    setStatus(`Downloading ${plugin.name}`, 'info')
 
     try {
       await installPlugin(plugin.id, release.url, release.checksum)
@@ -296,11 +424,11 @@ function App() {
         )
       }
       setView('workspace')
-      setStatus(`${plugin.name} installed`)
+      setStatus(`${plugin.name} installed`, 'success')
     } catch (error) {
       const message = formatError(error, `Failed to install ${plugin.name}`)
       setPluginErrors((current) => ({ ...current, [plugin.id]: message }))
-      setStatus(message)
+      setStatus(`Failed to install ${plugin.name}`, 'error', message)
     } finally {
       setBusyPluginId(null)
       setTimeout(() => {
@@ -321,23 +449,25 @@ function App() {
       delete next[id]
       return next
     })
-    setStatus(`Deleting ${plugin?.name ?? id}`)
+    setStatus(`Deleting ${plugin?.name ?? id}`, 'info')
 
     try {
       await uninstallPlugin(id, false)
       await refreshInstalledPlugins(activePluginId === id ? null : undefined)
-      setStatus(`${plugin?.name ?? id} deleted`)
+      setStatus(`${plugin?.name ?? id} deleted`, 'success')
     } catch (error) {
       const message = formatError(error, `Failed to delete ${plugin?.name ?? id}`)
       setPluginErrors((current) => ({ ...current, [id]: message }))
-      setStatus(message)
+      setStatus(`Failed to delete ${plugin?.name ?? id}`, 'error', message)
     } finally {
       setBusyPluginId(null)
     }
   }
 
   return (
-    <main className={`appShell theme-${config.theme}`}>
+    <main
+      className={`theme-${config.theme} grid h-screen overflow-hidden grid-cols-[240px_minmax(0,1fr)] bg-[radial-gradient(circle_at_50%_0,var(--dd-bg-glow),transparent_34%),var(--dd-bg-base)] text-[var(--dd-text-primary)] max-[900px]:grid-cols-1`}
+    >
       <Sidebar
         activePluginId={activePluginId}
         plugins={plugins}
@@ -346,13 +476,24 @@ function App() {
         view={view}
       />
 
-      <section className="content">
-        
-
+      <section className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-[linear-gradient(180deg,var(--dd-bg-content),transparent_280px),var(--dd-bg-base)]">
+        {view === 'dashboard' && (
+          <Dashboard
+            aiTools={aiTools}
+            config={config}
+            messages={messages}
+            onOpenAI={() => setView('ai')}
+            onOpenPlugin={openPlugin}
+            onOpenSettings={() => setView('settings')}
+            onOpenStore={() => setView('store')}
+            plugins={plugins}
+            registryPlugins={registryPlugins}
+            savedChats={savedChats}
+          />
+        )}
         {view === 'workspace' && (
           <PluginShell
             activePlugin={activePlugin}
-            onClosePlugin={() => setActivePluginId(null)}
             onOpenStore={() => setView('store')}
           />
         )}
@@ -363,8 +504,7 @@ function App() {
             onDelete={deletePlugin}
             onInstall={installFromRegistry}
             onOpen={(id) => {
-              setActivePluginId(id)
-              setView('workspace')
+              openPlugin(id)
             }}
             pluginErrors={pluginErrors}
             progressByPluginId={downloadProgress}
@@ -374,27 +514,81 @@ function App() {
         {view === 'ai' && (
           <AIPanel
             activeChatId={activeChatId}
+            attachments={attachments}
             draft={draft}
             isGenerating={isGenerating}
             messages={messages}
+            onAttachFiles={attachFiles}
             onDeleteChat={deleteSavedChat}
             onNewChat={startNewChat}
             onOpenChat={openSavedChat}
+            onRemoveAttachment={removeAttachment}
             onSaveChat={saveCurrentChat}
             savedChats={savedChats}
             sendMessage={sendMessage}
             setDraft={setDraft}
             streamingMessageId={streamingMessageId}
+            toolCount={aiTools.length}
           />
         )}
-        {view === 'settings' && <Settings config={config} saveConfig={saveConfig} />}
+        {view === 'settings' && (
+          <Settings config={config} saveConfig={saveConfig} showToast={showToast} />
+        )}
       </section>
+      <ToastViewport dismissToast={dismissToast} toasts={toasts} />
     </main>
   )
 }
 
-function setStatus(_message: string) {
-  // Runtime status is intentionally kept out of the visual shell.
+function ToastViewport({
+  dismissToast,
+  toasts,
+}: {
+  dismissToast: (id: string) => void
+  toasts: ToastMessage[]
+}) {
+  if (toasts.length === 0) return null
+
+  return (
+    <section
+      className="pointer-events-none fixed bottom-[var(--dd-space-5)] right-[var(--dd-space-5)] z-50 grid w-[min(380px,calc(100vw-var(--dd-space-8)))] gap-[var(--dd-space-3)]"
+      aria-label="Notifications"
+      aria-live="polite"
+    >
+      {toasts.map((toast) => {
+        const Icon = toastIcons[toast.kind]
+
+        return (
+          <article
+            className={`pointer-events-auto grid grid-cols-[auto_minmax(0,1fr)_auto] gap-[var(--dd-space-3)] rounded-[18px] border bg-[rgba(5,6,7,0.96)] p-[var(--dd-space-4)] text-[var(--dd-text-primary)] shadow-[0_18px_48px_rgba(0,0,0,0.48)] backdrop-blur ${toastStyles[toast.kind]}`}
+            key={toast.id}
+          >
+            <span className="mt-0.5 grid size-8 place-items-center rounded-full border border-[rgba(250,204,21,0.28)] bg-[rgba(250,204,21,0.1)]">
+              <Icon size={17} aria-hidden="true" />
+            </span>
+            <div className="min-w-0">
+              <strong className="block text-[0.92rem] font-semibold text-[var(--dd-text-primary)]">
+                {toast.title}
+              </strong>
+              {toast.detail ? (
+                <p className="m-0 mt-[var(--dd-space-1)] text-[0.84rem] leading-snug text-[var(--dd-text-secondary)]">
+                  {toast.detail}
+                </p>
+              ) : null}
+            </div>
+            <button
+              className="grid size-7 place-items-center rounded-full text-[var(--dd-text-muted)] transition-colors hover:bg-[var(--dd-bg-hover)] hover:text-[var(--dd-text-primary)]"
+              type="button"
+              aria-label={`Dismiss ${toast.title}`}
+              onClick={() => dismissToast(toast.id)}
+            >
+              <X size={15} aria-hidden="true" />
+            </button>
+          </article>
+        )
+      })}
+    </section>
+  )
 }
 
 async function fetchRegistry(): Promise<PluginRegistry> {
@@ -457,6 +651,73 @@ function chatTitle(messages: ChatMessage[]) {
   const title = message?.content.trim().replace(/\s+/g, ' ') ?? 'New chat'
 
   return title.length > 42 ? `${title.slice(0, 39)}...` : title
+}
+
+function formatMessageWithAttachments(prompt: string, attachments: ChatAttachment[]) {
+  if (attachments.length === 0) return prompt
+
+  const fileBlocks = attachments.map((attachment) => {
+    const header = `File: ${attachment.name} (${attachment.type || 'unknown type'}, ${formatBytes(attachment.size)})`
+
+    if (attachment.content === undefined) {
+      return `${header}\nContent: This file is attached, but DawnDesk can only include readable text file contents in AI chat right now.`
+    }
+
+    return `${header}\nContent:\n\`\`\`\n${attachment.content.slice(0, 18000)}${
+      attachment.content.length > 18000 ? '\n...[truncated]' : ''
+    }\n\`\`\``
+  })
+
+  return `${prompt || 'Please review the attached file(s).'}\n\nAttached files:\n\n${fileBlocks.join('\n\n')}`
+}
+
+function isTextAttachment(name: string, type: string) {
+  const extension = name.split('.').pop()?.toLowerCase()
+  const textExtensions = new Set([
+    'c',
+    'cpp',
+    'cs',
+    'css',
+    'csv',
+    'go',
+    'html',
+    'java',
+    'js',
+    'json',
+    'jsx',
+    'log',
+    'md',
+    'py',
+    'rs',
+    'sql',
+    'svg',
+    'toml',
+    'ts',
+    'tsx',
+    'txt',
+    'xml',
+    'yaml',
+    'yml',
+  ])
+
+  return type.startsWith('text/') || type.includes('json') || Boolean(extension && textExtensions.has(extension))
+}
+
+function guessMimeType(name: string) {
+  const extension = name.split('.').pop()?.toLowerCase()
+
+  if (extension === 'json') return 'application/json'
+  if (extension === 'md') return 'text/markdown'
+  if (extension === 'svg') return 'image/svg+xml'
+  if (extension === 'csv') return 'text/csv'
+
+  return 'application/octet-stream'
+}
+
+function formatBytes(size: number) {
+  if (size < 1024) return `${size} B`
+  if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`
+  return `${(size / (1024 * 1024)).toFixed(1)} MB`
 }
 
 function delay(ms: number) {
