@@ -350,6 +350,12 @@
   transition: width 160ms ease;
 }
 
+.pluginError {
+  margin: 0;
+  color: var(--dd-danger);
+  font-size: 0.86rem;
+}
+
 .pluginWebview {
   width: 100%;
   height: 100%;

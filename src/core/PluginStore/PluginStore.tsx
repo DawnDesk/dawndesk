@@ -11,6 +11,7 @@ type PluginStoreProps = {
   onDelete: (id: string) => void
   onInstall: (plugin: RegistryPlugin, release: RegistryRelease) => void
   onOpen: (id: string) => void
+  pluginErrors: Record<string, string>
   progressByPluginId: Record<string, PluginDownloadProgress>
   registryPlugins: RegistryPlugin[]
 }
@@ -21,6 +22,7 @@ export function PluginStore({
   onDelete,
   onInstall,
   onOpen,
+  pluginErrors,
   progressByPluginId,
   registryPlugins,
 }: PluginStoreProps) {
@@ -31,6 +33,7 @@ export function PluginStore({
         const release = pickRelease(plugin.releases)
         const isBusy = busyPluginId === plugin.id
         const progress = progressByPluginId[plugin.id]
+        const error = pluginErrors[plugin.id]
 
         return (
           <article className="storeCard" key={plugin.id}>
@@ -94,6 +97,7 @@ export function PluginStore({
                 </div>
               </div>
             )}
+            {error && <p className="pluginError">{error}</p>}
           </article>
         )
       })}

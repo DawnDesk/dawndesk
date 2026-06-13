@@ -130,9 +130,13 @@ pub fn install_plugin(
     fs::create_dir_all(&plugins_dir).map_err(|error| error.to_string())?;
 
     let install_dir = plugins_dir.join(id);
+    let backup_dir = plugins_dir.join(format!(".previous-{id}"));
     let temp_dir = plugins_dir.join(format!(".installing-{id}"));
     if temp_dir.exists() {
         fs::remove_dir_all(&temp_dir).map_err(|error| error.to_string())?;
+    }
+    if backup_dir.exists() {
+        fs::remove_dir_all(&backup_dir).map_err(|error| error.to_string())?;
     }
     fs::create_dir_all(&temp_dir).map_err(|error| error.to_string())?;
 
@@ -165,10 +169,6 @@ pub fn install_plugin(
         ));
     }
 
-    if install_dir.exists() {
-        fs::remove_dir_all(&install_dir).map_err(|error| error.to_string())?;
-    }
-
     on_progress(progress_event(
         id,
         96.0,
@@ -177,21 +177,44 @@ pub fn install_plugin(
         "installing",
     ));
 
-    if manifest_dir == temp_dir {
-        fs::rename(&temp_dir, &install_dir).map_err(|error| error.to_string())?;
-    } else {
-        fs::rename(&manifest_dir, &install_dir).map_err(|error| error.to_string())?;
-        let _ = fs::remove_dir_all(&temp_dir);
+    if install_dir.exists() {
+        fs::rename(&install_dir, &backup_dir).map_err(|error| error.to_string())?;
     }
 
-    patch_plugin_entrypoint(&install_dir)?;
-    let final_manifest = install_dir.join("plugin.manifest.json");
-    if !final_manifest.exists() {
+    let move_result = if manifest_dir == temp_dir {
+        fs::rename(&temp_dir, &install_dir).map_err(|error| error.to_string())
+    } else {
+        fs::rename(&manifest_dir, &install_dir).map_err(|error| error.to_string())
+    };
+
+    if let Err(error) = move_result {
+        restore_plugin_backup(&install_dir, &backup_dir);
+        let _ = fs::remove_dir_all(&temp_dir);
         return Err(format!(
-            "Plugin '{id}' installed, but plugin.manifest.json was not found in the final install folder."
+            "Failed to move plugin '{id}' into the install folder: {error}"
         ));
     }
-    read_manifest(&final_manifest)?;
+    let _ = fs::remove_dir_all(&temp_dir);
+
+    let final_check = patch_plugin_entrypoint(&install_dir).and_then(|_| {
+        let final_manifest = install_dir.join("plugin.manifest.json");
+        if !final_manifest.exists() {
+            return Err(format!(
+                "Plugin '{id}' installed, but plugin.manifest.json was not found in the final install folder."
+            ));
+        }
+        read_manifest(&final_manifest).map(|_| ())
+    });
+
+    if let Err(error) = final_check {
+        let _ = fs::remove_dir_all(&install_dir);
+        restore_plugin_backup(&install_dir, &backup_dir);
+        return Err(error);
+    }
+
+    if backup_dir.exists() {
+        fs::remove_dir_all(&backup_dir).map_err(|error| error.to_string())?;
+    }
 
     on_progress(progress_event(
         id,
@@ -302,6 +325,14 @@ fn progress_event(
 }
 
 fn extract_plugin_archive(bytes: &[u8], destination: &Path) -> Result<(), String> {
+    if is_seven_zip_archive(bytes) {
+        return extract_seven_zip_archive(bytes, destination);
+    }
+
+    if !is_zip_archive(bytes) {
+        return Err("Unsupported plugin archive format. Expected ZIP or 7z package.".to_string());
+    }
+
     let reader = Cursor::new(bytes.to_vec());
     let mut archive = ZipArchive::new(reader).map_err(|error| error.to_string())?;
 
@@ -326,6 +357,26 @@ fn extract_plugin_archive(bytes: &[u8], destination: &Path) -> Result<(), String
     }
 
     Ok(())
+}
+
+fn extract_seven_zip_archive(bytes: &[u8], destination: &Path) -> Result<(), String> {
+    let archive_path = destination.join(".plugin-package.7z");
+    fs::write(&archive_path, bytes).map_err(|error| error.to_string())?;
+
+    let result = sevenz_rust::decompress_file(&archive_path, destination)
+        .map_err(|error| format!("Failed to extract 7z plugin package: {error}"));
+    let _ = fs::remove_file(archive_path);
+    result
+}
+
+fn is_zip_archive(bytes: &[u8]) -> bool {
+    bytes.starts_with(b"PK\x03\x04")
+        || bytes.starts_with(b"PK\x05\x06")
+        || bytes.starts_with(b"PK\x07\x08")
+}
+
+fn is_seven_zip_archive(bytes: &[u8]) -> bool {
+    bytes.starts_with(&[0x37, 0x7A, 0xBC, 0xAF, 0x27, 0x1C])
 }
 
 fn find_manifest_dir(root: &Path) -> Option<PathBuf> {
@@ -367,6 +418,12 @@ fn patch_plugin_entrypoint(plugin_dir: &Path) -> Result<(), String> {
     }
 
     Ok(())
+}
+
+fn restore_plugin_backup(install_dir: &Path, backup_dir: &Path) {
+    if backup_dir.exists() && !install_dir.exists() {
+        let _ = fs::rename(backup_dir, install_dir);
+    }
 }
 
 fn read_json_object(path: PathBuf) -> Result<Map<String, Value>, String> {

@@ -49,6 +49,7 @@ function App() {
   const [downloadProgress, setDownloadProgress] = useState<Record<string, PluginDownloadProgress>>(
     {},
   )
+  const [pluginErrors, setPluginErrors] = useState<Record<string, string>>({})
 
   useEffect(() => {
     let alive = true
@@ -167,34 +168,47 @@ function App() {
   }
 
   async function refreshInstalledPlugins(nextActiveId?: string | null) {
-    const [pluginResult, toolsResult] = await Promise.allSettled([listPlugins(), getTools()])
-    const loadedPlugins = pluginResult.status === 'fulfilled' ? pluginResult.value : []
+    const [loadedPlugins, loadedTools] = await Promise.all([listPlugins(), getTools()])
 
     setPlugins(loadedPlugins)
-    setTools(toolsResult.status === 'fulfilled' ? toolsResult.value : [])
+    setTools(loadedTools)
 
     if (nextActiveId !== undefined) {
       setActivePluginId(nextActiveId)
-      return
+      return loadedPlugins
     }
 
     setActivePluginId((current) => {
       if (current && loadedPlugins.some((plugin) => plugin.id === current)) return current
       return loadedPlugins[0]?.id ?? null
     })
+
+    return loadedPlugins
   }
 
   async function installFromRegistry(plugin: RegistryPlugin, release: RegistryRelease) {
     setBusyPluginId(plugin.id)
+    setPluginErrors((current) => {
+      const next = { ...current }
+      delete next[plugin.id]
+      return next
+    })
     setStatus(`Downloading ${plugin.name}`)
 
     try {
       await installPlugin(plugin.id, release.url, release.checksum)
-      await refreshInstalledPlugins(plugin.id)
+      const loadedPlugins = await refreshInstalledPlugins(plugin.id)
+      if (!loadedPlugins.some((item) => item.id === plugin.id)) {
+        throw new Error(
+          `${plugin.name} downloaded, but DawnDesk could not find it in the installed plugins folder.`,
+        )
+      }
       setView('workspace')
       setStatus(`${plugin.name} installed`)
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : `Failed to install ${plugin.name}`)
+      const message = formatError(error, `Failed to install ${plugin.name}`)
+      setPluginErrors((current) => ({ ...current, [plugin.id]: message }))
+      setStatus(message)
     } finally {
       setBusyPluginId(null)
       setTimeout(() => {
@@ -210,6 +224,11 @@ function App() {
   async function deletePlugin(id: string) {
     const plugin = plugins.find((item) => item.id === id)
     setBusyPluginId(id)
+    setPluginErrors((current) => {
+      const next = { ...current }
+      delete next[id]
+      return next
+    })
     setStatus(`Deleting ${plugin?.name ?? id}`)
 
     try {
@@ -217,7 +236,9 @@ function App() {
       await refreshInstalledPlugins(activePluginId === id ? null : undefined)
       setStatus(`${plugin?.name ?? id} deleted`)
     } catch (error) {
-      setStatus(error instanceof Error ? error.message : `Failed to delete ${plugin?.name ?? id}`)
+      const message = formatError(error, `Failed to delete ${plugin?.name ?? id}`)
+      setPluginErrors((current) => ({ ...current, [id]: message }))
+      setStatus(message)
     } finally {
       setBusyPluginId(null)
     }
@@ -257,6 +278,7 @@ function App() {
               setActivePluginId(id)
               setView('workspace')
             }}
+            pluginErrors={pluginErrors}
             progressByPluginId={downloadProgress}
             registryPlugins={registryPlugins}
           />
@@ -308,6 +330,16 @@ function pageTitle(view: View, activePlugin: PluginMeta | null) {
   if (view === 'store') return 'Plugin Store'
   if (view === 'ai') return 'AI Panel'
   return 'Settings'
+}
+
+function formatError(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message.trim()) return error.message
+  if (typeof error === 'string' && error.trim()) return error
+  try {
+    return JSON.stringify(error)
+  } catch {
+    return fallback
+  }
 }
 
 export default App

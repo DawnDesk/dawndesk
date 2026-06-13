@@ -4,7 +4,19 @@ import type { AppConfig, ChatMessage, PluginMeta, ToolDefinition } from '../stor
 type HostChatMessage = Pick<ChatMessage, 'role' | 'content'>
 
 async function callHost<T>(command: string, args?: Record<string, unknown>) {
+  if (!isTauriRuntime()) {
+    throw new Error('This action requires the DawnDesk desktop app. Browser preview cannot install, delete, or load plugins.')
+  }
+
   return invoke<T>(command, args)
+}
+
+function isTauriRuntime() {
+  return Boolean(
+    '__TAURI_INTERNALS__' in window ||
+      '__TAURI__' in window ||
+      navigator.userAgent.includes('Tauri'),
+  )
 }
 
 export async function getSettings() {
