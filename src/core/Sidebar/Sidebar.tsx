@@ -1,6 +1,6 @@
 import {
-  ChevronRight,
   Home,
+  LogOut,
   MessageSquare,
   Package,
   Puzzle,
@@ -8,10 +8,13 @@ import {
   Store,
   type LucideIcon,
 } from 'lucide-react'
+import { userAvatarUrl, userDisplayName, type AuthUser } from '../../auth/supabase'
 import type { PluginMeta, View } from '../../store/appStore'
 
 type SidebarProps = {
   activePluginId: string | null
+  currentUser: AuthUser | null
+  onSignOut: () => void
   plugins: PluginMeta[]
   setActivePluginId: (id: string | null) => void
   setView: (view: View) => void
@@ -35,10 +38,15 @@ const sidebarIcon =
 const activeSidebarIcon = 'text-[var(--dd-accent)]'
 
 export function Sidebar({
+  currentUser,
+  onSignOut,
   setActivePluginId,
   setView,
   view,
 }: SidebarProps) {
+  const avatarUrl = userAvatarUrl(currentUser)
+  const displayName = userDisplayName(currentUser)
+
   return (
     <aside
       className="flex min-h-0 flex-col overflow-y-auto border-r border-[rgba(148,163,184,0.12)] bg-[#03080c] px-[var(--dd-space-3)] pb-[var(--dd-space-4)] pt-[var(--dd-space-4)] max-[900px]:max-h-72 max-[900px]:border-b max-[900px]:border-r-0"
@@ -82,25 +90,34 @@ export function Sidebar({
         })}
       </nav>
 
-      <section
-        className="relative mt-auto grid min-h-[58px] grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-[var(--dd-space-2)] rounded-[var(--dd-radius-md)] border border-[rgba(148,163,184,0.12)] bg-[rgba(255,255,255,0.02)] px-[var(--dd-space-3)] py-[var(--dd-space-2)]"
-        aria-label="Account"
-      >
-        <span className="grid size-8 place-items-center overflow-hidden rounded-full bg-[linear-gradient(180deg,#f9fafb,#64748b)] text-[var(--dd-accent-contrast)]">
-          <Package size={16} aria-hidden="true" />
-        </span>
-        <span className="min-w-0">
-          <strong className="block truncate text-[0.82rem] font-bold text-[var(--dd-text-primary)]">
-            Adeel
-          </strong>
-          <small className="block truncate text-[0.74rem] font-bold text-[var(--dd-accent)]">
-            Pro Plan
-          </small>
-        </span>
-        <small className="grid place-items-center text-[var(--dd-text-primary)]" aria-hidden="true">
-          <ChevronRight size={15} />
-        </small>
-      </section>
+      <footer className="mt-auto grid gap-[var(--dd-space-2)]">
+        <section
+          className="relative grid min-h-[58px] grid-cols-[auto_minmax(0,1fr)] items-center gap-[var(--dd-space-2)] rounded-[var(--dd-radius-md)] border border-[rgba(148,163,184,0.12)] bg-[rgba(255,255,255,0.02)] px-[var(--dd-space-3)] py-[var(--dd-space-2)]"
+          aria-label="Account"
+        >
+          <span className="grid size-9 place-items-center overflow-hidden rounded-full bg-[linear-gradient(180deg,#f9fafb,#64748b)] text-[var(--dd-accent-contrast)]">
+            {avatarUrl ? (
+              <img alt="" className="size-full object-cover" src={avatarUrl} />
+            ) : (
+              <Package size={16} aria-hidden="true" />
+            )}
+          </span>
+          <span className="min-w-0">
+            <strong className="block truncate text-[0.86rem] font-bold text-[var(--dd-text-primary)]">
+              {displayName}
+            </strong>
+          </span>
+        </section>
+
+        <button
+          className="flex min-h-10 w-full items-center gap-[var(--dd-space-3)] rounded-[var(--dd-radius-md)] border border-[rgba(148,163,184,0.12)] bg-[rgba(255,255,255,0.02)] px-[var(--dd-space-3)] py-[var(--dd-space-2)] text-left text-[0.84rem] font-semibold text-[var(--dd-text-secondary)] hover:bg-[rgba(239,68,68,0.1)] hover:text-[var(--dd-danger)]"
+          type="button"
+          onClick={onSignOut}
+        >
+          <LogOut size={16} aria-hidden="true" />
+          Logout
+        </button>
+      </footer>
     </aside>
   )
 }

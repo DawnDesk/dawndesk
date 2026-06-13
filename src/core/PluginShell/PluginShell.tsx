@@ -1,20 +1,15 @@
 import { useEffect, useState } from 'react'
 import {
   ChartNoAxesCombined,
-  ArrowLeft,
   Code2,
-  Download,
   FileText,
   FolderOpen,
-  Globe2,
   Image,
   Maximize2,
   Minimize2,
-  MoreVertical,
   Package,
   Puzzle,
   Search,
-  ShieldCheck,
   Trash2,
   Video,
   WandSparkles,
@@ -27,7 +22,6 @@ import type { PluginMeta } from '../../store/appStore'
 type PluginShellProps = {
   activePlugin: PluginMeta | null
   busyPluginId: string | null
-  onBackToPlugins: () => void
   onDelete: (id: string) => void
   onOpenPlugin: (id: string) => void
   onOpenStore: () => void
@@ -50,7 +44,6 @@ type PluginDocumentState = {
 export function PluginShell({
   activePlugin,
   busyPluginId,
-  onBackToPlugins,
   onDelete,
   onOpenPlugin,
   onOpenStore,
@@ -66,14 +59,9 @@ export function PluginShell({
     pluginId: null as string | null,
     value: false,
   })
-  const [viewMode, setViewMode] = useState<'details' | 'runtime'>('details')
   const pluginDocument = pluginLoad.pluginId === activePluginId ? pluginLoad.document : null
   const pluginError = pluginLoad.pluginId === activePluginId ? pluginLoad.error : null
   const isFullscreen = fullscreenState.pluginId === activePluginId ? fullscreenState.value : false
-
-  useEffect(() => {
-    setViewMode('details')
-  }, [activePluginId])
 
   useEffect(() => {
     let alive = true
@@ -134,16 +122,6 @@ export function PluginShell({
         onOpenPlugin={onOpenPlugin}
         onOpenStore={onOpenStore}
         plugins={plugins}
-      />
-    )
-  }
-
-  if (viewMode === 'details') {
-    return (
-      <PluginDetailPage
-        onBack={onBackToPlugins}
-        onOpen={() => setViewMode('runtime')}
-        plugin={activePlugin}
       />
     )
   }
@@ -220,261 +198,6 @@ export function PluginShell({
         </div>
       </article>
     </section>
-  )
-}
-
-function PluginDetailPage({
-  onBack,
-  onOpen,
-  plugin,
-}: {
-  onBack: () => void
-  onOpen: () => void
-  plugin: PluginMeta
-}) {
-  const Icon = getPluginIcon(plugin)
-  const category = formatCategory(plugin.category)
-  const installedDate = formatInstalledDate(plugin.installedAt)
-  const version = plugin.version || '1.0.0'
-
-  return (
-    <section className="relative min-h-0 flex-1 overflow-y-auto bg-[#03080c] px-[var(--dd-space-7)] pb-[var(--dd-space-6)] pt-[var(--dd-space-5)] max-[900px]:px-[var(--dd-space-4)]">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_32%_0%,rgba(250,204,21,0.08),transparent_23%),radial-gradient(circle_at_92%_12%,rgba(59,130,246,0.08),transparent_22%)]" />
-
-      <div className="relative mx-auto grid w-full max-w-[1320px] gap-[var(--dd-space-5)]">
-        <div className="flex items-center justify-between gap-[var(--dd-space-4)]">
-          <button
-            className="inline-flex min-h-9 items-center gap-[var(--dd-space-3)] text-[0.92rem] font-bold text-[var(--dd-accent)] transition-colors hover:text-[var(--dd-accent-hover)]"
-            type="button"
-            onClick={onBack}
-          >
-            <ArrowLeft size={18} aria-hidden="true" />
-            Installed Plugins
-          </button>
-          <span className="inline-flex min-h-9 items-center gap-[var(--dd-space-2)] rounded-[var(--dd-radius-md)] border border-[rgba(250,204,21,0.34)] bg-[rgba(250,204,21,0.05)] px-[var(--dd-space-4)] text-[0.82rem] font-bold text-[var(--dd-accent)]">
-            <ShieldCheck size={15} aria-hidden="true" />
-            Host entry screen
-          </span>
-        </div>
-
-        <section className="relative isolate overflow-hidden rounded-[var(--dd-radius-lg)] border border-[rgba(148,163,184,0.14)] bg-[var(--dd-bg-surface)] p-[var(--dd-space-7)] shadow-[0_24px_70px_rgba(0,0,0,0.32)] max-[720px]:p-[var(--dd-space-5)]">
-          <div className="absolute inset-0 -z-20 bg-[radial-gradient(circle_at_66%_45%,rgba(250,204,21,0.3),transparent_16%),linear-gradient(120deg,rgba(10,15,22,0.98)_0%,rgba(10,15,22,0.86)_42%,rgba(79,45,14,0.58)_68%,rgba(4,9,14,0.98)_100%)]" />
-          <div className="absolute right-[8%] top-[18%] -z-10 h-40 w-24 rounded-t-full border border-[rgba(250,204,21,0.18)] bg-[linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0.02))] shadow-[0_0_90px_rgba(250,204,21,0.26)] max-[900px]:hidden" />
-          <div className="absolute bottom-0 right-0 -z-10 h-28 w-[58%] bg-[linear-gradient(180deg,transparent,rgba(2,6,10,0.76))]" />
-
-          <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] gap-[var(--dd-space-6)] max-[860px]:grid-cols-1">
-            <span className="grid size-[84px] place-items-center rounded-[var(--dd-radius-lg)] bg-[linear-gradient(180deg,var(--dd-accent),var(--dd-warning))] text-white shadow-[0_22px_42px_rgba(250,204,21,0.18)]">
-              <Icon size={38} aria-hidden="true" />
-            </span>
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-[var(--dd-space-3)]">
-                <h1 className="m-0 text-[clamp(2rem,3vw,2.75rem)] font-extrabold leading-tight tracking-normal text-[var(--dd-text-primary)]">
-                  {plugin.name}
-                </h1>
-                <span className="rounded-[var(--dd-radius-sm)] bg-[rgba(34,197,94,0.15)] px-[var(--dd-space-2)] py-[var(--dd-space-1)] text-[0.8rem] font-bold text-[var(--dd-success)]">
-                  Installed
-                </span>
-              </div>
-              <div className="mt-[var(--dd-space-3)] flex flex-wrap items-center gap-[var(--dd-space-3)] text-[0.95rem] text-[var(--dd-text-secondary)]">
-                <span>{category}</span>
-                <span className="rounded-full border border-[rgba(250,204,21,0.24)] bg-[rgba(250,204,21,0.07)] px-[var(--dd-space-3)] py-[var(--dd-space-1)] text-[var(--dd-accent)]">
-                  Version {version}
-                </span>
-                <span>12.4 MB</span>
-              </div>
-              <p className="m-0 mt-[var(--dd-space-4)] max-w-[520px] text-[1rem] leading-7 text-[var(--dd-text-secondary)]">
-                {plugin.description || `Create, edit, organize, and manage ${plugin.name.toLowerCase()} efficiently.`}
-              </p>
-            </div>
-            <div className="flex items-start gap-[var(--dd-space-3)] justify-self-end max-[860px]:justify-self-start">
-              <button
-                className="grid size-10 place-items-center rounded-[var(--dd-radius-md)] border border-[rgba(148,163,184,0.16)] bg-[rgba(255,255,255,0.035)] text-[var(--dd-text-primary)]"
-                type="button"
-                aria-label="More plugin actions"
-              >
-                <MoreVertical size={18} aria-hidden="true" />
-              </button>
-              <button className={`${primaryButton} min-h-10`} type="button" onClick={onOpen}>
-                Open Plugin
-              </button>
-            </div>
-          </div>
-
-          <div className="mt-[var(--dd-space-8)] grid gap-[var(--dd-space-5)] md:grid-cols-2 xl:grid-cols-4">
-            <MetaItem icon={Download} label="Installed on" value={installedDate} />
-            <MetaItem icon={Package} label="Developer" value="DawnDesk Team" />
-            <MetaItem icon={Globe2} label="Website" value="dawndesk.app" />
-            <MetaItem icon={ShieldCheck} label="Permissions" value="File System Access" />
-          </div>
-        </section>
-
-        <nav className="flex items-end gap-[var(--dd-space-6)] border-b border-[rgba(148,163,184,0.14)]" aria-label="Plugin details">
-          {['Overview', 'Features', 'Permissions', 'Changelog'].map((item, index) => (
-            <span
-              className={`relative min-h-11 px-[var(--dd-space-5)] pt-[var(--dd-space-3)] text-[0.95rem] font-semibold ${
-                index === 0 ? 'text-[var(--dd-accent)]' : 'text-[var(--dd-text-secondary)]'
-              }`}
-              key={item}
-            >
-              {item}
-              {index === 0 ? (
-                <span className="absolute inset-x-0 bottom-[-1px] h-0.5 rounded-full bg-[var(--dd-accent)]" />
-              ) : null}
-            </span>
-          ))}
-        </nav>
-
-        <div className="grid gap-[var(--dd-space-4)] xl:grid-cols-[1.15fr_0.95fr_0.95fr]">
-          <article className={`${localPanel} rounded-[var(--dd-radius-md)] p-[var(--dd-space-5)]`}>
-            <h2 className="m-0 text-[1.1rem] font-extrabold text-[var(--dd-text-primary)]">
-              About {plugin.name}
-            </h2>
-            <p className="m-0 mt-[var(--dd-space-3)] text-[0.96rem] leading-7 text-[var(--dd-text-secondary)]">
-              A clean and powerful {plugin.name.toLowerCase()} plugin designed to keep the host minimal while adding focused workflow tools when you need them.
-            </p>
-            <div className="mt-[var(--dd-space-5)] grid min-h-[220px] grid-cols-[150px_minmax(0,1fr)] overflow-hidden rounded-[var(--dd-radius-md)] border border-[rgba(148,163,184,0.14)] bg-[rgba(255,255,255,0.025)] max-[720px]:grid-cols-1">
-              <div className="border-r border-[rgba(148,163,184,0.12)] p-[var(--dd-space-4)] max-[720px]:border-b max-[720px]:border-r-0">
-                <strong className="inline-flex items-center gap-[var(--dd-space-2)] text-[0.88rem] text-[var(--dd-text-primary)]">
-                  <Icon size={16} className="text-[var(--dd-accent)]" aria-hidden="true" />
-                  {plugin.name}
-                </strong>
-                {['All Notes', 'Favorites', 'Recent', 'Trash'].map((item, index) => (
-                  <span
-                    className={`mt-[var(--dd-space-3)] block rounded-[var(--dd-radius-sm)] px-[var(--dd-space-2)] py-[var(--dd-space-1)] text-[0.78rem] ${
-                      index === 0
-                        ? 'bg-[rgba(250,204,21,0.14)] text-[var(--dd-accent)]'
-                        : 'text-[var(--dd-text-muted)]'
-                    }`}
-                    key={item}
-                  >
-                    {item}
-                  </span>
-                ))}
-              </div>
-              <div className="p-[var(--dd-space-4)]">
-                <div className="flex items-center justify-between gap-[var(--dd-space-3)]">
-                  <strong>All Items</strong>
-                  <button className="rounded-[var(--dd-radius-sm)] bg-[var(--dd-accent)] px-[var(--dd-space-3)] py-[var(--dd-space-1)] text-[0.78rem] font-bold text-[var(--dd-accent-contrast)]" type="button">
-                    New
-                  </button>
-                </div>
-                <div className="mt-[var(--dd-space-4)] grid gap-[var(--dd-space-3)] sm:grid-cols-2">
-                  {['Project Roadmap', 'Daily Journal', 'Meeting Notes', 'Ideas'].map((item) => (
-                    <div className="min-h-16 rounded-[var(--dd-radius-sm)] bg-[rgba(255,255,255,0.04)] p-[var(--dd-space-3)]" key={item}>
-                      <strong className="block text-[0.82rem] text-[var(--dd-text-primary)]">{item}</strong>
-                      <span className="mt-[var(--dd-space-1)] block text-[0.72rem] text-[var(--dd-text-muted)]">
-                        May 18, 2025
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </div>
-          </article>
-
-          <article className={`${localPanel} rounded-[var(--dd-radius-md)] p-[var(--dd-space-5)]`}>
-            <h2 className="m-0 text-[1.1rem] font-extrabold text-[var(--dd-text-primary)]">
-              Key Features
-            </h2>
-            <div className="mt-[var(--dd-space-4)] grid">
-              {[
-                ['Rich Text Editing', 'Format content with headings, lists, images, and more.'],
-                ['Folders & Tags', 'Organize workspace items using folders and tags.'],
-                ['Search & Filter', 'Find anything instantly with powerful search.'],
-                ['Sync Across Devices', 'Access your work anywhere, anytime.'],
-                ['Secure & Private', 'Your plugin data stays scoped to DawnDesk.'],
-              ].map(([title, body]) => (
-                <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-[var(--dd-space-3)] border-b border-[rgba(148,163,184,0.1)] py-[var(--dd-space-3)] last:border-b-0" key={title}>
-                  <span className="grid size-10 place-items-center rounded-[var(--dd-radius-sm)] border border-[rgba(250,204,21,0.2)] bg-[rgba(250,204,21,0.06)] text-[var(--dd-accent)]">
-                    <WandSparkles size={17} aria-hidden="true" />
-                  </span>
-                  <span>
-                    <strong className="block text-[0.94rem] text-[var(--dd-text-primary)]">{title}</strong>
-                    <small className="mt-1 block text-[0.82rem] leading-5 text-[var(--dd-text-secondary)]">{body}</small>
-                  </span>
-                </div>
-              ))}
-            </div>
-          </article>
-
-          <div className="grid gap-[var(--dd-space-4)]">
-            <article className={`${localPanel} rounded-[var(--dd-radius-md)] p-[var(--dd-space-5)]`}>
-              <h2 className="m-0 text-[1.1rem] font-extrabold text-[var(--dd-text-primary)]">Details</h2>
-              <dl className="m-0 mt-[var(--dd-space-4)] grid gap-[var(--dd-space-3)] text-[0.92rem]">
-                {[
-                  ['Version', version],
-                  ['Installed Size', '12.4 MB'],
-                  ['Last Updated', installedDate],
-                  ['Category', category],
-                  ['Developer', 'DawnDesk Team'],
-                  ['Compatibility', 'Windows 10/11 (64-bit)'],
-                ].map(([label, value]) => (
-                  <div className="grid grid-cols-[1fr_auto] gap-[var(--dd-space-4)]" key={label}>
-                    <dt className="text-[var(--dd-text-secondary)]">{label}</dt>
-                    <dd className="m-0 text-right text-[var(--dd-text-primary)]">{value}</dd>
-                  </div>
-                ))}
-              </dl>
-            </article>
-            <article className={`${localPanel} rounded-[var(--dd-radius-md)] p-[var(--dd-space-5)]`}>
-              <h2 className="m-0 text-[1.1rem] font-extrabold text-[var(--dd-text-primary)]">Permissions</h2>
-              <p className="m-0 mt-[var(--dd-space-3)] text-[0.92rem] text-[var(--dd-text-secondary)]">
-                This plugin requires the following permissions:
-              </p>
-              <div className="mt-[var(--dd-space-4)] flex items-start justify-between gap-[var(--dd-space-4)]">
-                <div>
-                  <strong className="text-[0.92rem] text-[var(--dd-text-primary)]">File System Access</strong>
-                  <p className="m-0 mt-1 text-[0.82rem] text-[var(--dd-text-secondary)]">
-                    To read and write plugin data and attachments.
-                  </p>
-                </div>
-                <span className="rounded-[var(--dd-radius-sm)] bg-[rgba(34,197,94,0.14)] px-[var(--dd-space-3)] py-[var(--dd-space-1)] text-[0.78rem] font-bold text-[var(--dd-success)]">
-                  Granted
-                </span>
-              </div>
-            </article>
-          </div>
-        </div>
-
-        <article className={`${localPanel} flex items-center justify-between gap-[var(--dd-space-4)] rounded-[var(--dd-radius-md)] p-[var(--dd-space-5)]`}>
-          <div>
-            <h2 className="m-0 text-[1rem] font-extrabold text-[var(--dd-text-primary)]">
-              What's New in v{version}
-            </h2>
-            <ul className="m-0 mt-[var(--dd-space-3)] grid gap-[var(--dd-space-1)] pl-[var(--dd-space-5)] text-[0.9rem] text-[var(--dd-text-secondary)]">
-              <li>Added workflow improvements</li>
-              <li>Improved search performance</li>
-              <li>Fixed minor bugs and stability issues</li>
-            </ul>
-          </div>
-          <span className="rounded-[var(--dd-radius-sm)] border border-[rgba(250,204,21,0.22)] px-[var(--dd-space-3)] py-[var(--dd-space-1)] text-[0.78rem] font-bold text-[var(--dd-accent)]">
-            Latest
-          </span>
-        </article>
-      </div>
-    </section>
-  )
-}
-
-function MetaItem({
-  icon: Icon,
-  label,
-  value,
-}: {
-  icon: LucideIcon
-  label: string
-  value: string
-}) {
-  return (
-    <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-[var(--dd-space-3)]">
-      <span className="grid size-9 place-items-center rounded-[var(--dd-radius-sm)] border border-[rgba(148,163,184,0.18)] bg-[rgba(255,255,255,0.035)] text-[var(--dd-text-secondary)]">
-        <Icon size={18} aria-hidden="true" />
-      </span>
-      <span className="min-w-0">
-        <small className="block text-[0.78rem] text-[var(--dd-text-muted)]">{label}</small>
-        <strong className="block truncate text-[0.88rem] text-[var(--dd-text-primary)]">{value}</strong>
-      </span>
-    </div>
   )
 }
 
@@ -701,15 +424,4 @@ function formatCategory(category?: string) {
   if (!category) return 'Plugin'
   const normalized = category.replace(/[-_]/g, ' ')
   return normalized.slice(0, 1).toUpperCase() + normalized.slice(1)
-}
-
-function formatInstalledDate(value: string) {
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return 'May 18, 2025'
-
-  return date.toLocaleDateString(undefined, {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  })
 }

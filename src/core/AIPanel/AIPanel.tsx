@@ -14,11 +14,13 @@ import {
   User,
   X,
 } from 'lucide-react'
+import { userAvatarUrl, userDisplayName, type AuthUser } from '../../auth/supabase'
 import type { ChatAttachment, ChatMessage, SavedChat } from '../../store/appStore'
 
 type AIPanelProps = {
   activeChatId: string | null
   attachments: ChatAttachment[]
+  currentUser: AuthUser | null
   draft: string
   isGenerating: boolean
   messages: ChatMessage[]
@@ -27,7 +29,6 @@ type AIPanelProps = {
   onNewChat: () => void
   onOpenChat: (chat: SavedChat) => void
   onRemoveAttachment: (id: string) => void
-  onSaveChat: () => void
   savedChats: SavedChat[]
   sendMessage: () => void
   setDraft: (value: string) => void
@@ -76,6 +77,7 @@ const fallbackHistory: HistoryItem[] = [
 export function AIPanel({
   activeChatId,
   attachments,
+  currentUser,
   draft,
   isGenerating,
   messages,
@@ -84,7 +86,6 @@ export function AIPanel({
   onNewChat,
   onOpenChat,
   onRemoveAttachment,
-  onSaveChat,
   savedChats,
   sendMessage,
   setDraft,
@@ -96,15 +97,14 @@ export function AIPanel({
   const [query, setQuery] = useState('')
 
   const visibleMessages = useMemo(() => {
-    const actual = messages.filter((message) => message.id !== 'welcome' && message.content.trim())
-    return actual.length > 0 ? actual : sampleMessages
+    return messages.filter((message) => message.id !== 'welcome' && message.content.trim())
   }, [messages])
 
   const history = useMemo(() => buildHistory(savedChats), [savedChats])
   const filteredHistory = history.filter((item) =>
     item.title.toLowerCase().includes(query.trim().toLowerCase()),
   )
-  const groupedHistory = groupHistory(filteredHistory.length > 0 ? filteredHistory : history)
+  const groupedHistory = groupHistory(query.trim() ? filteredHistory : history)
 
   useEffect(() => {
     const messageList = messageListRef.current
@@ -156,7 +156,7 @@ export function AIPanel({
             </label>
 
             <div className="min-h-0 overflow-y-auto pr-[var(--dd-space-1)]">
-              {groupedHistory.map((group) => (
+              {groupedHistory.length > 0 ? groupedHistory.map((group) => (
                 <section className="mb-[var(--dd-space-4)] last:mb-0" key={group.name}>
                   <h2 className="m-0 mb-[var(--dd-space-2)] px-[var(--dd-space-3)] text-[0.85rem] font-medium text-[var(--dd-text-muted)]">
                     {group.name}
@@ -203,16 +203,16 @@ export function AIPanel({
                     })}
                   </div>
                 </section>
-              ))}
+              )) : (
+                <div className="rounded-[var(--dd-radius-md)] border border-[rgba(148,163,184,0.12)] bg-[rgba(255,255,255,0.02)] p-[var(--dd-space-4)] text-[0.88rem] leading-6 text-[var(--dd-text-secondary)]">
+                  {query.trim() ? 'No saved chats match your search.' : 'Your chats will appear here after you send a message.'}
+                </div>
+              )}
             </div>
 
-            <button
-              className="mt-[var(--dd-space-3)] min-h-12 rounded-[var(--dd-radius-md)] border border-[rgba(148,163,184,0.2)] bg-transparent px-[var(--dd-space-4)] text-[0.96rem] font-bold text-[var(--dd-text-primary)] transition-[background,border-color] hover:border-[rgba(250,204,21,0.34)] hover:bg-[rgba(255,255,255,0.035)]"
-              type="button"
-              onClick={onSaveChat}
-            >
-              View all chats
-            </button>
+            <p className="m-0 mt-[var(--dd-space-3)] rounded-[var(--dd-radius-md)] border border-[rgba(148,163,184,0.14)] px-[var(--dd-space-3)] py-[var(--dd-space-2)] text-center text-[0.82rem] text-[var(--dd-text-muted)]">
+              Chats save automatically
+            </p>
           </aside>
 
           <div className="grid min-h-0 grid-rows-[minmax(0,1fr)_auto] gap-[var(--dd-space-4)]">
@@ -221,14 +221,26 @@ export function AIPanel({
               ref={messageListRef}
             >
               <div className="grid gap-[var(--dd-space-5)]">
-                {visibleMessages.map((message, index) => (
+                {visibleMessages.length > 0 ? visibleMessages.map((message, index) => (
                   <MessageBubble
+                    currentUser={currentUser}
                     isStreaming={message.id === streamingMessageId}
                     key={message.id}
                     message={message}
                     showDivider={index < visibleMessages.length - 1}
                   />
-                ))}
+                )) : (
+                  <div className="grid min-h-[360px] place-items-center text-center">
+                    <div className="max-w-md">
+                      <h2 className="m-0 text-[1.3rem] font-extrabold text-[var(--dd-text-primary)]">
+                        Start a real conversation
+                      </h2>
+                      <p className="m-0 mt-[var(--dd-space-2)] text-[0.95rem] leading-7 text-[var(--dd-text-secondary)]">
+                        Ask DawnDesk AI something. Your chat will be saved automatically after you send it.
+                      </p>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -252,15 +264,19 @@ export function AIPanel({
 }
 
 function MessageBubble({
+  currentUser,
   isStreaming,
   message,
   showDivider,
 }: {
+  currentUser: AuthUser | null
   isStreaming: boolean
   message: ChatMessage
   showDivider: boolean
 }) {
   const isUser = message.role === 'user'
+  const avatarUrl = userAvatarUrl(currentUser)
+  const displayName = userDisplayName(currentUser)
 
   return (
     <article className={`${showDivider ? 'border-b border-[rgba(148,163,184,0.14)] pb-[var(--dd-space-5)]' : ''}`}>
@@ -273,7 +289,9 @@ function MessageBubble({
           }`}
           aria-hidden="true"
         >
-          {isUser ? (
+          {isUser && avatarUrl ? (
+            <img alt="" className="size-full object-cover" src={avatarUrl} />
+          ) : isUser ? (
             <User size={19} />
           ) : (
             <img alt="" className="size-8 object-contain" src="/logo.png" />
@@ -281,7 +299,7 @@ function MessageBubble({
         </span>
         <div className="min-w-0">
           <strong className="block text-[1.02rem] font-extrabold text-[var(--dd-text-primary)]">
-            {isUser ? 'You' : 'DawnDesk AI'}
+            {isUser ? displayName : 'DawnDesk AI'}
           </strong>
           <div className="mt-[var(--dd-space-2)] text-[0.98rem] leading-7 text-[var(--dd-text-secondary)]">
             <MessageContent content={message.content} isStreaming={isStreaming} />
@@ -585,15 +603,13 @@ function renderInlineMarkdown(text: string) {
 }
 
 function buildHistory(savedChats: SavedChat[]): HistoryItem[] {
-  const saved = savedChats.map((chat) => ({
+  return savedChats.map((chat) => ({
     chat,
     group: groupSavedChat(chat.updatedAt),
     id: chat.id,
     time: formatHistoryTime(chat.updatedAt),
     title: chat.title,
   }))
-
-  return saved.length > 0 ? saved : fallbackHistory
 }
 
 function groupHistory(items: HistoryItem[]) {

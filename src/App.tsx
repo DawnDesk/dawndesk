@@ -6,7 +6,6 @@ import {
   AlertTriangle,
   CheckCircle2,
   Info,
-  LogOut,
   X,
   XCircle,
   type LucideIcon,
@@ -18,7 +17,7 @@ import { PluginStore } from './core/PluginStore/PluginStore'
 import { Settings } from './core/Settings/Settings'
 import { SignIn } from './core/SignIn/SignIn'
 import { Sidebar } from './core/Sidebar/Sidebar'
-import { isSupabaseConfigured, supabase, userDisplayName, type AuthState } from './auth/supabase'
+import { isSupabaseConfigured, supabase, type AuthState } from './auth/supabase'
 import {
   getSettings,
   getTools,
@@ -31,7 +30,6 @@ import {
 } from './ipc/host'
 import {
   fallbackConfig,
-  fallbackPlugins,
   initialMessages,
   type AppConfig,
   type ChatAttachment,
@@ -160,12 +158,18 @@ function App() {
 
     getCurrent()
       .then((urls) => {
-        if (urls) void handleAuthDeepLinks(urls)
+        if (urls) {
+          void handleAuthDeepLinks(urls).catch((error) => {
+            setStatus('Google sign-in callback failed', 'error', formatError(error, 'Unable to finish sign-in.'))
+          })
+        }
       })
       .catch(() => undefined)
 
     onOpenUrl((urls) => {
-      void handleAuthDeepLinks(urls)
+      void handleAuthDeepLinks(urls).catch((error) => {
+        setStatus('Google sign-in callback failed', 'error', formatError(error, 'Unable to finish sign-in.'))
+      })
     })
       .then((handler) => {
         unlisten = handler
@@ -175,7 +179,7 @@ function App() {
     return () => {
       unlisten?.()
     }
-  }, [])
+  }, [setStatus])
 
   useEffect(() => {
     if (!auth.user?.id) {
@@ -219,9 +223,7 @@ function App() {
       setActivePluginId(null)
       setConfig(configResult.status === 'fulfilled' ? configResult.value : fallbackConfig)
       setAiTools(toolsResult.status === 'fulfilled' ? toolsResult.value : [])
-      setRegistryPlugins(
-        registryResult.status === 'fulfilled' ? registryResult.value.plugins : fallbackRegistry(),
-      )
+      setRegistryPlugins(registryResult.status === 'fulfilled' ? registryResult.value.plugins : [])
       if (registryResult.status === 'fulfilled') {
         setStatus('Plugin registry loaded', 'success')
       } else {
@@ -275,6 +277,35 @@ function App() {
     localStorage.setItem(savedChatsKey(auth.user.id), JSON.stringify(savedChats))
   }, [auth.user?.id, savedChats])
 
+  useEffect(() => {
+    if (!auth.user?.id) return
+
+    const meaningfulMessages = messages.filter((message) => message.id !== 'welcome' && message.content.trim())
+    if (!meaningfulMessages.some((message) => message.role === 'user')) return
+
+    const now = new Date().toISOString()
+    const title = chatTitle(meaningfulMessages)
+
+    if (activeChatId) {
+      setSavedChats((current) =>
+        current.map((chat) =>
+          chat.id === activeChatId ? { ...chat, messages, title, updatedAt: now } : chat,
+        ),
+      )
+      return
+    }
+
+    const chat: SavedChat = {
+      id: crypto.randomUUID(),
+      messages,
+      title,
+      updatedAt: now,
+    }
+
+    setActiveChatId(chat.id)
+    setSavedChats((current) => [chat, ...current])
+  }, [activeChatId, auth.user?.id, messages])
+
   const activePlugin = useMemo(
     () => plugins.find((plugin) => plugin.id === activePluginId) ?? null,
     [activePluginId, plugins],
@@ -300,7 +331,6 @@ function App() {
 
     setMessages((current) => {
       const nextMessages = [...current, userMessage, assistantMessage]
-      updateActiveSavedChat(nextMessages)
       return nextMessages
     })
     setDraft('')
@@ -392,8 +422,6 @@ function App() {
         return finalMessages
       })
     }
-
-    updateActiveSavedChat(finalMessages)
   }
 
   function saveCurrentChat() {
@@ -447,24 +475,6 @@ function App() {
   function openPlugin(id: string) {
     setActivePluginId(id)
     setView('workspace')
-  }
-
-  function updateActiveSavedChat(nextMessages: ChatMessage[]) {
-    if (!activeChatId) return
-
-    const now = new Date().toISOString()
-    setSavedChats((current) =>
-      current.map((chat) =>
-        chat.id === activeChatId
-          ? {
-              ...chat,
-              title: chatTitle(nextMessages),
-              updatedAt: now,
-              messages: nextMessages,
-            }
-          : chat,
-      ),
-    )
   }
 
   async function saveConfig(nextConfig: AppConfig) {
@@ -590,7 +600,16 @@ function App() {
 
     try {
       await openUrl(data.url)
-    } catch {
+    } catch (error) {
+      if (isTauriRuntime()) {
+        setStatus(
+          'Google sign-in could not open',
+          'error',
+          formatError(error, 'DawnDesk could not open the Google sign-in page in your browser.'),
+        )
+        return
+      }
+
       window.location.href = data.url
     }
   }
@@ -636,6 +655,8 @@ function App() {
     >
       <Sidebar
         activePluginId={activePluginId}
+        currentUser={auth.user}
+        onSignOut={signOut}
         plugins={plugins}
         setActivePluginId={setActivePluginId}
         setView={setView}
@@ -643,22 +664,11 @@ function App() {
       />
 
       <section className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-[linear-gradient(180deg,var(--dd-bg-content),transparent_280px),var(--dd-bg-base)]">
-        <div className="absolute right-[var(--dd-space-5)] top-[var(--dd-space-4)] z-40 flex max-w-[min(420px,calc(100vw-var(--dd-space-8)))] items-center gap-[var(--dd-space-2)] rounded-[var(--dd-radius-md)] border border-[var(--dd-border-soft)] bg-[rgba(5,6,7,0.76)] px-[var(--dd-space-3)] py-[var(--dd-space-2)] text-[0.8rem] text-[var(--dd-text-secondary)] shadow-[var(--dd-shadow-sm)] backdrop-blur">
-          <span className="truncate">{userDisplayName(auth.user)}</span>
-          <button
-            aria-label="Sign out"
-            className="grid size-7 shrink-0 place-items-center rounded-[var(--dd-radius-sm)] text-[var(--dd-text-muted)] hover:bg-[var(--dd-bg-hover)] hover:text-[var(--dd-text-primary)]"
-            onClick={signOut}
-            type="button"
-            title="Sign out"
-          >
-            <LogOut size={15} aria-hidden="true" />
-          </button>
-        </div>
         {view === 'dashboard' && (
           <Dashboard
             aiTools={aiTools}
             config={config}
+            currentUser={auth.user}
             messages={messages}
             onOpenAI={() => setView('ai')}
             onOpenPlugin={openPlugin}
@@ -673,7 +683,6 @@ function App() {
           <PluginShell
             activePlugin={activePlugin}
             busyPluginId={busyPluginId}
-            onBackToPlugins={() => setActivePluginId(null)}
             onDelete={deletePlugin}
             onOpenPlugin={openPlugin}
             onOpenStore={() => setView('store')}
@@ -702,6 +711,7 @@ function App() {
           <AIPanel
             activeChatId={activeChatId}
             attachments={attachments}
+            currentUser={auth.user}
             draft={draft}
             isGenerating={isGenerating}
             messages={messages}
@@ -710,7 +720,6 @@ function App() {
             onNewChat={startNewChat}
             onOpenChat={openSavedChat}
             onRemoveAttachment={removeAttachment}
-            onSaveChat={saveCurrentChat}
             savedChats={savedChats}
             sendMessage={sendMessage}
             setDraft={setDraft}
@@ -805,23 +814,20 @@ async function fetchRegistry(): Promise<PluginRegistry> {
   throw lastError
 }
 
-function fallbackRegistry(): RegistryPlugin[] {
-  return fallbackPlugins.map((plugin) => ({
-    id: plugin.id,
-    name: plugin.name,
-    description: plugin.description,
-    category: plugin.category,
-    latestVersion: plugin.version,
-    releases: {},
-  }))
-}
-
 function savedChatsKey(userId: string) {
   return `${savedChatsStorageKey}.${userId}`
 }
 
 function getAuthRedirectUrl() {
   return authRedirectUrl
+}
+
+function isTauriRuntime() {
+  return Boolean(
+    '__TAURI_INTERNALS__' in window ||
+      '__TAURI__' in window ||
+      navigator.userAgent.includes('Tauri'),
+  )
 }
 
 async function handleAuthDeepLinks(urls: string[]) {

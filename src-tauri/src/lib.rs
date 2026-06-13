@@ -23,6 +23,7 @@ mod settings {
 
 use settings::config::{ensure_data_dirs, read_config, AppConfig};
 use std::sync::Mutex;
+use tauri::Emitter;
 
 pub(crate) struct AppState {
     pub(crate) config: Mutex<AppConfig>,
@@ -40,6 +41,16 @@ pub fn run() {
     }
 
     tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, argv, _cwd| {
+            let urls = argv
+                .into_iter()
+                .filter(|arg| arg.starts_with("dawndesk://"))
+                .collect::<Vec<_>>();
+
+            if !urls.is_empty() {
+                let _ = app.emit("deep-link://new-url", urls);
+            }
+        }))
         .plugin(tauri_plugin_deep_link::init())
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_process::init())

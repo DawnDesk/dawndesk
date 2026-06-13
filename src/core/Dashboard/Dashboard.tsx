@@ -15,6 +15,7 @@ import {
   type LucideIcon,
 } from 'lucide-react'
 import type { ReactNode } from 'react'
+import { userAvatarUrl, userFirstName, type AuthUser } from '../../auth/supabase'
 import type {
   AppConfig,
   ChatMessage,
@@ -27,6 +28,7 @@ import type {
 type DashboardProps = {
   aiTools: ToolDefinition[]
   config: AppConfig
+  currentUser: AuthUser | null
   messages: ChatMessage[]
   onOpenAI: () => void
   onOpenPlugin: (id: string) => void
@@ -104,6 +106,7 @@ const ghostButton =
 export function Dashboard({
   aiTools,
   config,
+  currentUser,
   messages,
   onOpenAI,
   onOpenPlugin,
@@ -116,6 +119,8 @@ export function Dashboard({
   const recentChats = buildRecentChats(savedChats, messages)
   const installedCount = Math.max(plugins.length, aiTools.length > 0 ? plugins.length : 0)
   const availableCount = Math.max(registryPlugins.length, quickCards.length)
+  const avatarUrl = userAvatarUrl(currentUser)
+  const firstName = userFirstName(currentUser)
 
   function openQuickCard(card: QuickCard) {
     if (card.id === 'ai') {
@@ -153,9 +158,18 @@ export function Dashboard({
 
           <div className="grid min-h-[236px] grid-cols-[minmax(0,1fr)_330px] items-center gap-[var(--dd-space-8)] max-[1050px]:grid-cols-1">
             <div className="max-w-[460px]">
-              <p className="m-0 text-[1.12rem] font-bold text-[var(--dd-accent)]">
-                Good Afternoon, Adeel <span aria-hidden="true">👋</span>
-              </p>
+              <div className="flex items-center gap-[var(--dd-space-3)]">
+                <span className="grid size-11 place-items-center overflow-hidden rounded-full bg-[linear-gradient(180deg,#f9fafb,#64748b)] text-[var(--dd-accent-contrast)] shadow-[0_0_0_5px_rgba(250,204,21,0.1)]">
+                  {avatarUrl ? (
+                    <img alt="" className="size-full object-cover" src={avatarUrl} />
+                  ) : (
+                    <Home size={20} aria-hidden="true" />
+                  )}
+                </span>
+                <p className="m-0 text-[1.12rem] font-bold text-[var(--dd-accent)]">
+                  Good Afternoon, {firstName}
+                </p>
+              </div>
               <h1 className="m-0 mt-[var(--dd-space-4)] text-[clamp(2.1rem,4vw,3.45rem)] font-extrabold leading-[1.02] tracking-normal text-[var(--dd-text-primary)]">
                 DawnDesk is ready
               </h1>

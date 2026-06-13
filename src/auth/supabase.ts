@@ -34,3 +34,19 @@ export function userDisplayName(user: AuthUser | null) {
 
   return user.email ?? 'Signed in'
 }
+
+export function userFirstName(user: AuthUser | null) {
+  const displayName = userDisplayName(user)
+  return displayName.split(/\s+/)[0] || displayName
+}
+
+export function userAvatarUrl(user: AuthUser | null) {
+  if (!user) return null
+
+  const avatar =
+    user.user_metadata?.avatar_url ??
+    user.user_metadata?.picture ??
+    user.user_metadata?.photo_url
+
+  return typeof avatar === 'string' && avatar.trim() ? avatar : null
+}

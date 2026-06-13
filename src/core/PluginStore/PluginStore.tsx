@@ -1,21 +1,20 @@
 import { useMemo, useState } from 'react'
 import {
+  ArrowLeft,
   BriefcaseBusiness,
-  Calculator,
   ChartNoAxesCombined,
-  ChevronLeft,
-  ChevronRight,
   Code2,
   Download,
   ExternalLink,
   FileText,
   FolderOpen,
+  Globe2,
   Image,
-  Languages,
-  Mic,
+  MoreVertical,
   Package,
   Play,
   Search,
+  ShieldCheck,
   Star,
   Trash2,
   Video,
@@ -46,9 +45,7 @@ type MarketplaceCard = {
   description: string
   icon: LucideIcon
   id: string
-  rating: string
-  reviews: number
-  source?: RegistryPlugin
+  source: RegistryPlugin
   title: string
 }
 
@@ -58,129 +55,6 @@ const primaryButton =
   'inline-flex min-h-10 items-center justify-center gap-[var(--dd-space-2)] rounded-[var(--dd-radius-md)] border border-[var(--dd-accent)] bg-[var(--dd-accent)] px-[var(--dd-space-5)] text-[0.92rem] font-extrabold text-[var(--dd-accent-contrast)] shadow-[0_14px_30px_rgba(250,204,21,0.18)] transition-[background,transform] hover:-translate-y-px hover:bg-[var(--dd-accent-hover)] disabled:cursor-not-allowed disabled:opacity-65'
 const secondaryButton =
   'inline-flex min-h-9 items-center justify-center gap-[var(--dd-space-2)] rounded-[var(--dd-radius-sm)] border border-[rgba(148,163,184,0.14)] bg-[rgba(255,255,255,0.025)] px-[var(--dd-space-4)] text-[0.9rem] font-bold text-[var(--dd-text-primary)] transition-[border-color,background,transform] hover:-translate-y-px hover:border-[rgba(250,204,21,0.28)] hover:bg-[rgba(255,255,255,0.045)] disabled:cursor-not-allowed disabled:opacity-65'
-
-const showcasePlugins: MarketplaceCard[] = [
-  {
-    category: 'Productivity',
-    color: 'from-[#ffb020] to-[#ffcc18]',
-    description: 'Create, edit, and manage your notes with ease.',
-    icon: FileText,
-    id: 'notes',
-    rating: '4.8',
-    reviews: 124,
-    title: 'Notes',
-  },
-  {
-    category: 'Productivity',
-    color: 'from-[#2563eb] to-[#60a5fa]',
-    description: 'Search the web for real-time information.',
-    icon: Search,
-    id: 'web-search',
-    rating: '4.7',
-    reviews: 98,
-    title: 'Web Search',
-  },
-  {
-    category: 'Productivity',
-    color: 'from-[#db2777] to-[#f43f5e]',
-    description: 'Read, analyze, and summarize PDF files.',
-    icon: FileText,
-    id: 'pdf-reader',
-    rating: '4.6',
-    reviews: 86,
-    title: 'PDF Reader',
-  },
-  {
-    category: 'Development',
-    color: 'from-[#4b5563] to-[#1f2937]',
-    description: 'Run code in multiple programming languages.',
-    icon: Code2,
-    id: 'code-runner',
-    rating: '4.9',
-    reviews: 156,
-    title: 'Code Runner',
-  },
-  {
-    category: 'Media',
-    color: 'from-[#7c3aed] to-[#a855f7]',
-    description: 'Generate images from text descriptions.',
-    icon: Image,
-    id: 'image-generator',
-    rating: '4.8',
-    reviews: 112,
-    title: 'Image Generator',
-  },
-  {
-    category: 'Media',
-    color: 'from-[#dc2626] to-[#ef4444]',
-    description: 'Summarize YouTube videos instantly.',
-    icon: Video,
-    id: 'youtube-summarizer',
-    rating: '4.6',
-    reviews: 77,
-    title: 'YouTube Summarizer',
-  },
-  {
-    category: 'Utilities',
-    color: 'from-[#6b7280] to-[#374151]',
-    description: 'Perform calculations quickly and easily.',
-    icon: Calculator,
-    id: 'calculator',
-    rating: '4.7',
-    reviews: 65,
-    title: 'Calculator',
-  },
-  {
-    category: 'Finance',
-    color: 'from-[#4ade80] to-[#22c55e]',
-    description: 'Track expenses and manage your finances.',
-    icon: ChartNoAxesCombined,
-    id: 'finance',
-    rating: '4.8',
-    reviews: 93,
-    title: 'Finance Tracker',
-  },
-  {
-    category: 'Utilities',
-    color: 'from-[#2563eb] to-[#60a5fa]',
-    description: 'Translate text between multiple languages.',
-    icon: Languages,
-    id: 'translator',
-    rating: '4.6',
-    reviews: 58,
-    title: 'Translator',
-  },
-  {
-    category: 'Productivity',
-    color: 'from-[#f97316] to-[#fb923c]',
-    description: 'Organize tasks and boost your productivity.',
-    icon: BriefcaseBusiness,
-    id: 'project-manager',
-    rating: '4.7',
-    reviews: 70,
-    title: 'Task Manager',
-  },
-  {
-    category: 'Utilities',
-    color: 'from-[#7c3aed] to-[#a855f7]',
-    description: 'Convert speech to text effortlessly.',
-    icon: Mic,
-    id: 'voice-to-text',
-    rating: '4.5',
-    reviews: 61,
-    title: 'Voice to Text',
-  },
-  {
-    category: 'Productivity',
-    color: 'from-[#34d399] to-[#10b981]',
-    description: 'Create beautiful charts from your data.',
-    icon: ChartNoAxesCombined,
-    id: 'chart-generator',
-    rating: '4.8',
-    reviews: 85,
-    title: 'Chart Generator',
-  },
-]
 
 export function PluginStore({
   busyPluginId,
@@ -195,6 +69,7 @@ export function PluginStore({
 }: PluginStoreProps) {
   const [category, setCategory] = useState('All Categories')
   const [query, setQuery] = useState('')
+  const [selectedCard, setSelectedCard] = useState<MarketplaceCard | null>(null)
 
   const marketplacePlugins = useMemo(
     () => mergeMarketplacePlugins(registryPlugins),
@@ -206,6 +81,29 @@ export function PluginStore({
     return matchesQuery && matchesCategory
   })
   const categoryOptions = ['All Categories', ...Array.from(new Set(marketplacePlugins.map((card) => card.category)))]
+  const selectedInstalledPlugin = selectedCard
+    ? installedPlugins.find((plugin) => plugin.id === selectedCard.id)
+    : null
+  const selectedRelease = selectedCard ? pickRelease(selectedCard.source.releases) : null
+
+  if (selectedCard) {
+    return (
+      <MarketplacePluginDetail
+        busy={busyPluginId === selectedCard.id}
+        card={selectedCard}
+        error={pluginErrors[selectedCard.id]}
+        installedPlugin={selectedInstalledPlugin ?? null}
+        onBack={() => setSelectedCard(null)}
+        onDelete={() => onDelete(selectedCard.id)}
+        onInstall={() => {
+          if (selectedRelease) onInstall(selectedCard.source, selectedRelease)
+        }}
+        onOpen={() => onOpen(selectedCard.id)}
+        progress={progressByPluginId[selectedCard.id]}
+        release={selectedRelease}
+      />
+    )
+  }
 
   return (
     <section className="relative min-h-0 flex-1 overflow-y-auto bg-[#03080c] px-[var(--dd-space-7)] pb-[var(--dd-space-6)] pt-[var(--dd-space-6)] max-[900px]:px-[var(--dd-space-4)]">
@@ -301,7 +199,7 @@ export function PluginStore({
           </div>
         ) : (
           <div className="grid gap-[var(--dd-space-4)] sm:grid-cols-2 xl:grid-cols-4">
-            {filteredCards.slice(0, 12).map((card) => {
+            {filteredCards.map((card) => {
               const installedPlugin = installedPlugins.find((plugin) => plugin.id === card.id)
               const release = card.source ? pickRelease(card.source.releases) : null
               const progress = progressByPluginId[card.id]
@@ -317,9 +215,10 @@ export function PluginStore({
                   key={card.id}
                   onDelete={() => onDelete(card.id)}
                   onInstall={() => {
-                    if (card.source && release) onInstall(card.source, release)
+                    if (release) onInstall(card.source, release)
                   }}
                   onOpen={() => onOpen(card.id)}
+                  onSelect={() => setSelectedCard(card)}
                   progress={progress}
                   release={release}
                 />
@@ -330,29 +229,8 @@ export function PluginStore({
 
         <footer className="flex items-center justify-between gap-[var(--dd-space-4)] px-[var(--dd-space-3)] text-[0.9rem] text-[var(--dd-text-muted)] max-[700px]:flex-col max-[700px]:items-start">
           <span>
-            Showing {Math.min(filteredCards.length, 12)} of {Math.max(marketplacePlugins.length * 4, 48)} plugins
+            Showing {filteredCards.length} of {marketplacePlugins.length} registry plugins
           </span>
-          <div className="flex items-center gap-[var(--dd-space-2)]">
-            <button className="grid size-9 place-items-center rounded-[var(--dd-radius-sm)] text-[var(--dd-text-secondary)] hover:bg-[rgba(255,255,255,0.04)] hover:text-[var(--dd-text-primary)]" type="button" aria-label="Previous page">
-              <ChevronLeft size={17} aria-hidden="true" />
-            </button>
-            {[1, 2, 3].map((page) => (
-              <button
-                className={`grid size-9 place-items-center rounded-[var(--dd-radius-sm)] font-bold ${
-                  page === 1
-                    ? 'border border-[rgba(148,163,184,0.18)] bg-[rgba(255,255,255,0.06)] text-[var(--dd-text-primary)]'
-                    : 'text-[var(--dd-text-secondary)] hover:bg-[rgba(255,255,255,0.04)] hover:text-[var(--dd-text-primary)]'
-                }`}
-                key={page}
-                type="button"
-              >
-                {page}
-              </button>
-            ))}
-            <button className="grid size-9 place-items-center rounded-[var(--dd-radius-sm)] text-[var(--dd-text-secondary)] hover:bg-[rgba(255,255,255,0.04)] hover:text-[var(--dd-text-primary)]" type="button" aria-label="Next page">
-              <ChevronRight size={17} aria-hidden="true" />
-            </button>
-          </div>
         </footer>
       </div>
     </section>
@@ -392,6 +270,7 @@ function PluginCard({
   onDelete,
   onInstall,
   onOpen,
+  onSelect,
   progress,
   release,
 }: {
@@ -402,13 +281,25 @@ function PluginCard({
   onDelete: () => void
   onInstall: () => void
   onOpen: () => void
+  onSelect: () => void
   progress?: PluginDownloadProgress
   release: (RegistryRelease & { platform: string }) | null
 }) {
   const Icon = card.icon
 
   return (
-    <article className={`${panel} grid min-h-[176px] grid-rows-[auto_1fr_auto_auto] gap-[var(--dd-space-3)] rounded-[var(--dd-radius-md)] p-[var(--dd-space-4)]`}>
+    <article
+      className={`${panel} grid min-h-[176px] cursor-pointer grid-rows-[auto_1fr_auto_auto] gap-[var(--dd-space-3)] rounded-[var(--dd-radius-md)] p-[var(--dd-space-4)] transition-[border-color,transform] hover:-translate-y-px hover:border-[rgba(250,204,21,0.28)]`}
+      onClick={onSelect}
+      onKeyDown={(event) => {
+        if (event.key === 'Enter' || event.key === ' ') {
+          event.preventDefault()
+          onSelect()
+        }
+      }}
+      role="button"
+      tabIndex={0}
+    >
       <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-[var(--dd-space-3)]">
         <span className={`grid size-11 place-items-center rounded-[var(--dd-radius-sm)] bg-gradient-to-br ${card.color} text-white shadow-[0_12px_26px_rgba(0,0,0,0.26)]`}>
           <Icon size={22} aria-hidden="true" />
@@ -427,25 +318,45 @@ function PluginCard({
 
       <div className="flex items-center justify-between gap-[var(--dd-space-3)]">
         <span className="inline-flex items-center gap-[var(--dd-space-2)] text-[0.88rem] text-[var(--dd-text-secondary)]">
-          <Star className="fill-[var(--dd-accent)] text-[var(--dd-accent)]" size={15} aria-hidden="true" />
-          {card.rating} ({card.reviews})
+          <Star className="text-[var(--dd-accent)]" size={15} aria-hidden="true" />
+          {card.source.verified ? 'Verified' : card.source.latestVersion}
         </span>
         {installed ? (
           <div className="flex gap-[var(--dd-space-2)]">
-            <button className={secondaryButton} disabled={busy} type="button" onClick={onOpen}>
+            <button
+              className={secondaryButton}
+              disabled={busy}
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation()
+                onOpen()
+              }}
+            >
               <FolderOpen size={15} aria-hidden="true" />
               Open
             </button>
-            <button className={`${secondaryButton} !px-[var(--dd-space-3)] text-[var(--dd-danger)]`} disabled={busy} type="button" aria-label={`Delete ${card.title}`} onClick={onDelete}>
+            <button
+              className={`${secondaryButton} !px-[var(--dd-space-3)] text-[var(--dd-danger)]`}
+              disabled={busy}
+              type="button"
+              aria-label={`Delete ${card.title}`}
+              onClick={(event) => {
+                event.stopPropagation()
+                onDelete()
+              }}
+            >
               <Trash2 size={15} aria-hidden="true" />
             </button>
           </div>
         ) : (
           <button
             className={secondaryButton}
-            disabled={busy || (card.source ? !release : false)}
+            disabled={busy || !release}
             type="button"
-            onClick={onInstall}
+            onClick={(event) => {
+              event.stopPropagation()
+              onInstall()
+            }}
           >
             <Download size={15} aria-hidden="true" />
             {busy ? 'Installing' : 'Install'}
@@ -473,28 +384,311 @@ function PluginCard({
   )
 }
 
+function MarketplacePluginDetail({
+  busy,
+  card,
+  error,
+  installedPlugin,
+  onBack,
+  onDelete,
+  onInstall,
+  onOpen,
+  progress,
+  release,
+}: {
+  busy: boolean
+  card: MarketplaceCard
+  error?: string
+  installedPlugin: PluginMeta | null
+  onBack: () => void
+  onDelete: () => void
+  onInstall: () => void
+  onOpen: () => void
+  progress?: PluginDownloadProgress
+  release: (RegistryRelease & { platform: string }) | null
+}) {
+  const Icon = card.icon
+  const installed = Boolean(installedPlugin)
+  const version = installedPlugin?.version ?? card.source?.latestVersion ?? '0.1.0'
+  const installedDate = installedPlugin ? formatDetailDate(installedPlugin.installedAt) : 'Not installed'
+
+  return (
+    <section className="relative min-h-0 flex-1 overflow-y-auto bg-[#03080c] px-[var(--dd-space-7)] pb-[var(--dd-space-6)] pt-[var(--dd-space-5)] max-[900px]:px-[var(--dd-space-4)]">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_32%_0%,rgba(250,204,21,0.08),transparent_23%),radial-gradient(circle_at_92%_12%,rgba(59,130,246,0.08),transparent_22%)]" />
+
+      <div className="relative mx-auto grid w-full max-w-[1320px] gap-[var(--dd-space-5)]">
+        <div className="flex items-center justify-between gap-[var(--dd-space-4)]">
+          <button
+            className="inline-flex min-h-9 items-center gap-[var(--dd-space-3)] text-[0.92rem] font-bold text-[var(--dd-accent)] transition-colors hover:text-[var(--dd-accent-hover)]"
+            type="button"
+            onClick={onBack}
+          >
+            <ArrowLeft size={18} aria-hidden="true" />
+            Marketplace
+          </button>
+          <span className="inline-flex min-h-9 items-center gap-[var(--dd-space-2)] rounded-[var(--dd-radius-md)] border border-[rgba(250,204,21,0.34)] bg-[rgba(250,204,21,0.05)] px-[var(--dd-space-4)] text-[0.82rem] font-bold text-[var(--dd-accent)]">
+            <ShieldCheck size={15} aria-hidden="true" />
+            Marketplace details
+          </span>
+        </div>
+
+        <section className="relative isolate overflow-hidden rounded-[var(--dd-radius-lg)] border border-[rgba(148,163,184,0.14)] bg-[var(--dd-bg-surface)] p-[var(--dd-space-7)] shadow-[0_24px_70px_rgba(0,0,0,0.32)] max-[720px]:p-[var(--dd-space-5)]">
+          <div className="absolute inset-0 -z-20 bg-[radial-gradient(circle_at_66%_45%,rgba(250,204,21,0.3),transparent_16%),linear-gradient(120deg,rgba(10,15,22,0.98)_0%,rgba(10,15,22,0.86)_42%,rgba(79,45,14,0.58)_68%,rgba(4,9,14,0.98)_100%)]" />
+          <div className="absolute right-[8%] top-[18%] -z-10 h-40 w-24 rounded-t-full border border-[rgba(250,204,21,0.18)] bg-[linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0.02))] shadow-[0_0_90px_rgba(250,204,21,0.26)] max-[900px]:hidden" />
+          <div className="absolute bottom-0 right-0 -z-10 h-28 w-[58%] bg-[linear-gradient(180deg,transparent,rgba(2,6,10,0.76))]" />
+
+          <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] gap-[var(--dd-space-6)] max-[860px]:grid-cols-1">
+            <span className={`grid size-[84px] place-items-center rounded-[var(--dd-radius-lg)] bg-gradient-to-br ${card.color} text-white shadow-[0_22px_42px_rgba(250,204,21,0.18)]`}>
+              <Icon size={38} aria-hidden="true" />
+            </span>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-[var(--dd-space-3)]">
+                <h1 className="m-0 text-[clamp(2rem,3vw,2.75rem)] font-extrabold leading-tight tracking-normal text-[var(--dd-text-primary)]">
+                  {card.title}
+                </h1>
+                {installed ? (
+                  <span className="rounded-[var(--dd-radius-sm)] bg-[rgba(34,197,94,0.15)] px-[var(--dd-space-2)] py-[var(--dd-space-1)] text-[0.8rem] font-bold text-[var(--dd-success)]">
+                    Installed
+                  </span>
+                ) : null}
+              </div>
+              <div className="mt-[var(--dd-space-3)] flex flex-wrap items-center gap-[var(--dd-space-3)] text-[0.95rem] text-[var(--dd-text-secondary)]">
+                <span>{card.category}</span>
+                <span className="rounded-full border border-[rgba(250,204,21,0.24)] bg-[rgba(250,204,21,0.07)] px-[var(--dd-space-3)] py-[var(--dd-space-1)] text-[var(--dd-accent)]">
+                  Version {version}
+                </span>
+                <span>{release?.platform ?? 'Desktop'}</span>
+              </div>
+              <p className="m-0 mt-[var(--dd-space-4)] max-w-[560px] text-[1rem] leading-7 text-[var(--dd-text-secondary)]">
+                {card.description}
+              </p>
+            </div>
+            <div className="flex items-start gap-[var(--dd-space-3)] justify-self-end max-[860px]:justify-self-start">
+              <button
+                className="grid size-10 place-items-center rounded-[var(--dd-radius-md)] border border-[rgba(148,163,184,0.16)] bg-[rgba(255,255,255,0.035)] text-[var(--dd-text-primary)]"
+                type="button"
+                aria-label="More plugin actions"
+              >
+                <MoreVertical size={18} aria-hidden="true" />
+              </button>
+              {installed ? (
+                <button className={`${primaryButton} min-h-10`} type="button" onClick={onOpen}>
+                  Open Plugin
+                </button>
+              ) : (
+                <button
+                  className={`${primaryButton} min-h-10`}
+                  disabled={busy || !release}
+                  type="button"
+                  onClick={onInstall}
+                >
+                  <Download size={16} aria-hidden="true" />
+                  {busy ? 'Installing' : 'Install Plugin'}
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div className="mt-[var(--dd-space-8)] grid gap-[var(--dd-space-5)] md:grid-cols-2 xl:grid-cols-4">
+            <DetailMetaItem icon={Download} label={installed ? 'Installed on' : 'Install status'} value={installedDate} />
+            <DetailMetaItem icon={Package} label="Developer" value={card.source?.author ?? 'DawnDesk Team'} />
+            <DetailMetaItem icon={Globe2} label="Website" value={card.source?.repository ?? 'dawndesk.app'} />
+            <DetailMetaItem icon={ShieldCheck} label="Permissions" value="Host mediated access" />
+          </div>
+        </section>
+
+        {progress ? (
+          <div className={`${panel} grid gap-[var(--dd-space-2)] rounded-[var(--dd-radius-md)] p-[var(--dd-space-4)]`}>
+            <div className="flex justify-between gap-[var(--dd-space-2)] text-[0.84rem] text-[var(--dd-text-secondary)]">
+              <span>{formatStatus(progress.status)}</span>
+              <span>{Math.round(progress.progress)}%</span>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-[rgba(148,163,184,0.16)]">
+              <span
+                className="block h-full rounded-[inherit] bg-[var(--dd-accent)] transition-[width] duration-150"
+                style={{ width: `${Math.round(progress.progress)}%` }}
+              />
+            </div>
+          </div>
+        ) : null}
+
+        {error ? <p className="m-0 text-[0.9rem] text-[var(--dd-danger)]">{error}</p> : null}
+
+        <nav className="flex items-end gap-[var(--dd-space-6)] border-b border-[rgba(148,163,184,0.14)]" aria-label="Plugin details">
+          {['Overview', 'Features', 'Permissions', 'Changelog'].map((item, index) => (
+            <span
+              className={`relative min-h-11 px-[var(--dd-space-5)] pt-[var(--dd-space-3)] text-[0.95rem] font-semibold ${
+                index === 0 ? 'text-[var(--dd-accent)]' : 'text-[var(--dd-text-secondary)]'
+              }`}
+              key={item}
+            >
+              {item}
+              {index === 0 ? (
+                <span className="absolute inset-x-0 bottom-[-1px] h-0.5 rounded-full bg-[var(--dd-accent)]" />
+              ) : null}
+            </span>
+          ))}
+        </nav>
+
+        <div className="grid gap-[var(--dd-space-4)] xl:grid-cols-[1.15fr_0.95fr_0.95fr]">
+          <article className={`${panel} rounded-[var(--dd-radius-md)] p-[var(--dd-space-5)]`}>
+            <h2 className="m-0 text-[1.1rem] font-extrabold text-[var(--dd-text-primary)]">
+              About {card.title}
+            </h2>
+            <p className="m-0 mt-[var(--dd-space-3)] text-[0.96rem] leading-7 text-[var(--dd-text-secondary)]">
+              A focused DawnDesk plugin designed to extend your workspace without adding bulk to the host app.
+            </p>
+            <div className="mt-[var(--dd-space-5)] grid min-h-[220px] grid-cols-[150px_minmax(0,1fr)] overflow-hidden rounded-[var(--dd-radius-md)] border border-[rgba(148,163,184,0.14)] bg-[rgba(255,255,255,0.025)] max-[720px]:grid-cols-1">
+              <div className="border-r border-[rgba(148,163,184,0.12)] p-[var(--dd-space-4)] max-[720px]:border-b max-[720px]:border-r-0">
+                <strong className="inline-flex items-center gap-[var(--dd-space-2)] text-[0.88rem] text-[var(--dd-text-primary)]">
+                  <Icon size={16} className="text-[var(--dd-accent)]" aria-hidden="true" />
+                  {card.title}
+                </strong>
+                {['All Items', 'Favorites', 'Recent', 'Settings'].map((item, index) => (
+                  <span
+                    className={`mt-[var(--dd-space-3)] block rounded-[var(--dd-radius-sm)] px-[var(--dd-space-2)] py-[var(--dd-space-1)] text-[0.78rem] ${
+                      index === 0
+                        ? 'bg-[rgba(250,204,21,0.14)] text-[var(--dd-accent)]'
+                        : 'text-[var(--dd-text-muted)]'
+                    }`}
+                    key={item}
+                  >
+                    {item}
+                  </span>
+                ))}
+              </div>
+              <div className="p-[var(--dd-space-4)]">
+                <div className="flex items-center justify-between gap-[var(--dd-space-3)]">
+                  <strong>Plugin Preview</strong>
+                  <span className="rounded-[var(--dd-radius-sm)] bg-[var(--dd-accent)] px-[var(--dd-space-3)] py-[var(--dd-space-1)] text-[0.78rem] font-bold text-[var(--dd-accent-contrast)]">
+                    New
+                  </span>
+                </div>
+                <div className="mt-[var(--dd-space-4)] grid gap-[var(--dd-space-3)] sm:grid-cols-2">
+                  {['Workspace item', 'AI command', 'Recent file', 'Plugin setting'].map((item) => (
+                    <div className="min-h-16 rounded-[var(--dd-radius-sm)] bg-[rgba(255,255,255,0.04)] p-[var(--dd-space-3)]" key={item}>
+                      <strong className="block text-[0.82rem] text-[var(--dd-text-primary)]">{item}</strong>
+                      <span className="mt-[var(--dd-space-1)] block text-[0.72rem] text-[var(--dd-text-muted)]">
+                        Marketplace preview
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </article>
+
+          <article className={`${panel} rounded-[var(--dd-radius-md)] p-[var(--dd-space-5)]`}>
+            <h2 className="m-0 text-[1.1rem] font-extrabold text-[var(--dd-text-primary)]">
+              Key Features
+            </h2>
+            <div className="mt-[var(--dd-space-4)] grid">
+              {[
+                ['Fast plugin launch', 'Runs inside the DawnDesk plugin shell.'],
+                ['Local-first data', 'Uses host-mediated local storage scoped by user.'],
+                ['AI-ready tools', 'Can expose tool definitions to the host AI.'],
+                ['Minimal host impact', 'Keeps plugin logic out of the desktop shell.'],
+              ].map(([title, body]) => (
+                <div className="grid grid-cols-[auto_minmax(0,1fr)] gap-[var(--dd-space-3)] border-b border-[rgba(148,163,184,0.1)] py-[var(--dd-space-3)] last:border-b-0" key={title}>
+                  <span className="grid size-10 place-items-center rounded-[var(--dd-radius-sm)] border border-[rgba(250,204,21,0.2)] bg-[rgba(250,204,21,0.06)] text-[var(--dd-accent)]">
+                    <Star size={17} aria-hidden="true" />
+                  </span>
+                  <span>
+                    <strong className="block text-[0.94rem] text-[var(--dd-text-primary)]">{title}</strong>
+                    <small className="mt-1 block text-[0.82rem] leading-5 text-[var(--dd-text-secondary)]">{body}</small>
+                  </span>
+                </div>
+              ))}
+            </div>
+          </article>
+
+          <div className="grid gap-[var(--dd-space-4)]">
+            <article className={`${panel} rounded-[var(--dd-radius-md)] p-[var(--dd-space-5)]`}>
+              <h2 className="m-0 text-[1.1rem] font-extrabold text-[var(--dd-text-primary)]">Details</h2>
+              <dl className="m-0 mt-[var(--dd-space-4)] grid gap-[var(--dd-space-3)] text-[0.92rem]">
+                {[
+                  ['Version', version],
+                  ['Status', installed ? 'Installed' : 'Available'],
+                  ['Category', card.category],
+                  ['Developer', card.source?.author ?? 'DawnDesk Team'],
+                  ['Platform', release?.platform ?? 'Desktop'],
+                ].map(([label, value]) => (
+                  <div className="grid grid-cols-[1fr_auto] gap-[var(--dd-space-4)]" key={label}>
+                    <dt className="text-[var(--dd-text-secondary)]">{label}</dt>
+                    <dd className="m-0 text-right text-[var(--dd-text-primary)]">{value}</dd>
+                  </div>
+                ))}
+              </dl>
+            </article>
+            <article className={`${panel} rounded-[var(--dd-radius-md)] p-[var(--dd-space-5)]`}>
+              <h2 className="m-0 text-[1.1rem] font-extrabold text-[var(--dd-text-primary)]">Actions</h2>
+              <div className="mt-[var(--dd-space-4)] flex flex-wrap gap-[var(--dd-space-3)]">
+                {installed ? (
+                  <>
+                    <button className={primaryButton} type="button" onClick={onOpen}>
+                      Open Plugin
+                    </button>
+                    <button className={`${secondaryButton} text-[var(--dd-danger)]`} disabled={busy} type="button" onClick={onDelete}>
+                      <Trash2 size={15} aria-hidden="true" />
+                      Delete
+                    </button>
+                  </>
+                ) : (
+                  <button
+                    className={primaryButton}
+                  disabled={busy || !release}
+                    type="button"
+                    onClick={onInstall}
+                  >
+                    <Download size={16} aria-hidden="true" />
+                    {busy ? 'Installing' : 'Install Plugin'}
+                  </button>
+                )}
+              </div>
+            </article>
+          </div>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function DetailMetaItem({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: LucideIcon
+  label: string
+  value: string
+}) {
+  return (
+    <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-[var(--dd-space-3)]">
+      <span className="grid size-9 place-items-center rounded-[var(--dd-radius-sm)] border border-[rgba(148,163,184,0.18)] bg-[rgba(255,255,255,0.035)] text-[var(--dd-text-secondary)]">
+        <Icon size={18} aria-hidden="true" />
+      </span>
+      <span className="min-w-0">
+        <small className="block text-[0.78rem] text-[var(--dd-text-muted)]">{label}</small>
+        <strong className="block truncate text-[0.88rem] text-[var(--dd-text-primary)]">{value}</strong>
+      </span>
+    </div>
+  )
+}
+
 function mergeMarketplacePlugins(registryPlugins: RegistryPlugin[]): MarketplaceCard[] {
-  const registryCards = registryPlugins.map((plugin, index) => {
+  return registryPlugins.map((plugin, index) => {
     const Icon = getPluginIcon(plugin)
-    const fallback = showcasePlugins.find((item) => item.id === plugin.id)
 
     return {
       category: normalizeCategory(plugin.category),
-      color: fallback?.color ?? iconColors[index % iconColors.length],
+      color: iconColors[index % iconColors.length],
       description: plugin.description,
       icon: Icon,
       id: plugin.id,
-      rating: fallback?.rating ?? '4.8',
-      reviews: fallback?.reviews ?? 80 + index * 7,
       source: plugin,
       title: plugin.name,
     }
   })
-
-  const registryIds = new Set(registryCards.map((plugin) => plugin.id))
-  const showcase = showcasePlugins.filter((plugin) => !registryIds.has(plugin.id))
-
-  return [...registryCards, ...showcase].slice(0, 12)
 }
 
 const iconColors = [
@@ -535,6 +729,17 @@ function normalizeCategory(category?: string) {
 
 function formatStatus(status: string) {
   return status.slice(0, 1).toUpperCase() + status.slice(1)
+}
+
+function formatDetailDate(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return value || 'Recently'
+
+  return date.toLocaleDateString(undefined, {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  })
 }
 
 function pickRelease(releases: Record<string, RegistryRelease>) {

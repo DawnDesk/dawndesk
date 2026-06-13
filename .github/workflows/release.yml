@@ -69,8 +69,8 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NEXT_PUBLIC_SUPABASE_URL: https://aqmirikexdouhqoqzlka.supabase.co
-          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Rn46SdNF2o_0D6vCjaQxug_NzZ1Fmjg
+          VITE_SUPABASE_URL: https://aqmirikexdouhqoqzlka.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Rn46SdNF2o_0D6vCjaQxug_NzZ1Fmjg
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
@@ -86,8 +86,8 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          NEXT_PUBLIC_SUPABASE_URL: https://aqmirikexdouhqoqzlka.supabase.co
-          NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Rn46SdNF2o_0D6vCjaQxug_NzZ1Fmjg
+          VITE_SUPABASE_URL: https://aqmirikexdouhqoqzlka.supabase.co
+          VITE_SUPABASE_PUBLISHABLE_KEY: sb_publishable_Rn46SdNF2o_0D6vCjaQxug_NzZ1Fmjg
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
 
