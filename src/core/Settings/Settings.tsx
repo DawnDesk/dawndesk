@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { relaunch } from '@tauri-apps/plugin-process'
-import { check } from '@tauri-apps/plugin-updater'
+import { check, type Update } from '@tauri-apps/plugin-updater'
 import type { AppConfig } from '../../store/appStore'
 
 type SettingsProps = {
@@ -39,14 +39,40 @@ export function Settings({ config, saveConfig }: SettingsProps) {
   const selectedModels = modelOptions[config.aiProvider]
   const selectedApiKey = config.apiKeys[config.aiProvider]
   const selectedModel = selectedModels.includes(config.aiModel) ? config.aiModel : selectedModels[0]
-  const [updateStatus, setUpdateStatus] = useState('Ready to check for updates')
-  const [checkingUpdate, setCheckingUpdate] = useState(false)
+  const [availableUpdate, setAvailableUpdate] = useState<Update | null>(null)
+  const [updateStatus, setUpdateStatus] = useState('')
+  const [installingUpdate, setInstallingUpdate] = useState(false)
 
   useEffect(() => {
     if (config.aiModel !== selectedModel) {
       saveConfig({ ...config, aiModel: selectedModel })
     }
   }, [config, saveConfig, selectedModel])
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function detectUpdate() {
+      try {
+        const update = await check()
+
+        if (cancelled || !update) {
+          return
+        }
+
+        setAvailableUpdate(update)
+        setUpdateStatus(`DawnDesk ${update.version} is available`)
+      } catch (error) {
+        console.warn('Unable to check for DawnDesk updates', error)
+      }
+    }
+
+    detectUpdate()
+
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   function saveProvider(aiProvider: AppConfig['aiProvider']) {
     saveConfig({
@@ -70,26 +96,22 @@ export function Settings({ config, saveConfig }: SettingsProps) {
     })
   }
 
-  async function checkForUpdate() {
-    setCheckingUpdate(true)
-    setUpdateStatus('Checking for updates')
+  async function installUpdate() {
+    if (!availableUpdate) {
+      return
+    }
+
+    setInstallingUpdate(true)
+    setUpdateStatus(`Downloading DawnDesk ${availableUpdate.version}`)
 
     try {
-      const update = await check()
-
-      if (!update) {
-        setUpdateStatus('DawnDesk is up to date')
-        return
-      }
-
-      setUpdateStatus(`Downloading DawnDesk ${update.version}`)
       let downloaded = 0
       let total = 0
 
-      await update.downloadAndInstall((event) => {
+      await availableUpdate.downloadAndInstall((event) => {
         if (event.event === 'Started') {
           total = event.data.contentLength ?? 0
-          setUpdateStatus(`Downloading DawnDesk ${update.version}`)
+          setUpdateStatus(`Downloading DawnDesk ${availableUpdate.version}`)
         }
 
         if (event.event === 'Progress') {
@@ -97,8 +119,8 @@ export function Settings({ config, saveConfig }: SettingsProps) {
           const progress = total > 0 ? Math.round((downloaded / total) * 100) : null
           setUpdateStatus(
             progress
-              ? `Downloading DawnDesk ${update.version} (${progress}%)`
-              : `Downloading DawnDesk ${update.version}`,
+              ? `Downloading DawnDesk ${availableUpdate.version} (${progress}%)`
+              : `Downloading DawnDesk ${availableUpdate.version}`,
           )
         }
 
@@ -110,9 +132,9 @@ export function Settings({ config, saveConfig }: SettingsProps) {
       setUpdateStatus('Update installed. Restarting DawnDesk')
       await relaunch()
     } catch (error) {
-      setUpdateStatus(error instanceof Error ? error.message : 'Update check failed')
+      setUpdateStatus(error instanceof Error ? error.message : 'Update failed')
     } finally {
-      setCheckingUpdate(false)
+      setInstallingUpdate(false)
     }
   }
 
@@ -178,20 +200,22 @@ export function Settings({ config, saveConfig }: SettingsProps) {
           value={config.registryUrl}
         />
       </label>
-      <section className="settingsAction wide" aria-label="DawnDesk updates">
-        <div>
-          <span>App updates</span>
-          <p>{updateStatus}</p>
-        </div>
-        <button
-          className="primaryButton"
-          disabled={checkingUpdate}
-          type="button"
-          onClick={checkForUpdate}
-        >
-          {checkingUpdate ? 'Checking' : 'Check for updates'}
-        </button>
-      </section>
+      {availableUpdate ? (
+        <section className="settingsAction wide" aria-label="DawnDesk updates">
+          <div>
+            <span>App updates</span>
+            <p>{updateStatus}</p>
+          </div>
+          <button
+            className="primaryButton"
+            disabled={installingUpdate}
+            type="button"
+            onClick={installUpdate}
+          >
+            {installingUpdate ? 'Updating' : 'Update now'}
+          </button>
+        </section>
+      ) : null}
     </section>
   )
 }
