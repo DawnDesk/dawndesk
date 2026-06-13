@@ -39,6 +39,10 @@ export async function uninstallPlugin(id: string, keepData = false) {
   return callHost<void>('plugin_uninstall', { id, keepData })
 }
 
+export async function getPluginEntryDocument(pluginId: string) {
+  return callHost<string>('plugin_entry_document', { pluginId })
+}
+
 export async function getTools() {
   return callHost<ToolDefinition[]>('ai_get_tools')
 }

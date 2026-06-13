@@ -1,4 +1,5 @@
-import { convertFileSrc } from '@tauri-apps/api/core'
+import { useEffect, useState } from 'react'
+import { getPluginEntryDocument } from '../../ipc/host'
 import type { PluginMeta, ToolDefinition } from '../../store/appStore'
 
 type PluginShellProps = {
@@ -8,7 +9,33 @@ type PluginShellProps = {
 
 export function PluginShell({ activePlugin, tools }: PluginShellProps) {
   const pluginTools = tools.filter((tool) => tool.pluginId === activePlugin?.id)
-  const pluginEntryUrl = activePlugin?.entryPath ? convertFileSrc(activePlugin.entryPath) : null
+  const [pluginDocument, setPluginDocument] = useState<string | null>(null)
+  const [pluginError, setPluginError] = useState<string | null>(null)
+
+  useEffect(() => {
+    let alive = true
+    setPluginDocument(null)
+    setPluginError(null)
+
+    async function loadPluginDocument() {
+      if (!activePlugin?.id) return
+
+      try {
+        const html = await getPluginEntryDocument(activePlugin.id)
+        if (alive) setPluginDocument(html)
+      } catch (error) {
+        if (alive) {
+          setPluginError(error instanceof Error ? error.message : 'Unable to load plugin UI')
+        }
+      }
+    }
+
+    loadPluginDocument()
+
+    return () => {
+      alive = false
+    }
+  }, [activePlugin?.id])
 
   if (!activePlugin) {
     return (
@@ -30,8 +57,18 @@ export function PluginShell({ activePlugin, tools }: PluginShellProps) {
           <span className="statusPill">v{activePlugin.version}</span>
         </div>
         <div className="frameBody">
-          {pluginEntryUrl ? (
-            <iframe className="pluginWebview" src={pluginEntryUrl} title={activePlugin.name} />
+          {pluginDocument ? (
+            <iframe className="pluginWebview" srcDoc={pluginDocument} title={activePlugin.name} />
+          ) : pluginError ? (
+            <div>
+              <h2>Plugin UI failed to load</h2>
+              <p>{pluginError}</p>
+            </div>
+          ) : activePlugin.entryPath ? (
+            <div>
+              <h2>Loading plugin</h2>
+              <p>Preparing {activePlugin.name}.</p>
+            </div>
           ) : (
             <div>
               <h2>Plugin UI not found</h2>

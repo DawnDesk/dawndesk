@@ -196,7 +196,7 @@ pub fn install_plugin(
     }
     let _ = fs::remove_dir_all(&temp_dir);
 
-    let final_check = patch_plugin_entrypoint(&install_dir).and_then(|_| {
+    let final_check = patch_plugin_entrypoint(&install_dir, id).and_then(|_| {
         let final_manifest = install_dir.join("plugin.manifest.json");
         if !final_manifest.exists() {
             return Err(format!(
@@ -402,22 +402,58 @@ fn find_manifest_path(root: &Path) -> Option<PathBuf> {
     find_manifest_dir(root).map(|path| path.join("plugin.manifest.json"))
 }
 
-fn patch_plugin_entrypoint(plugin_dir: &Path) -> Result<(), String> {
+fn patch_plugin_entrypoint(plugin_dir: &Path, plugin_id: &str) -> Result<(), String> {
     let index_path = plugin_dir.join("index.html");
     if !index_path.exists() {
         return Ok(());
     }
 
     let content = fs::read_to_string(&index_path).map_err(|error| error.to_string())?;
-    let patched = content
+    let mut patched = content
         .replace("src=\"/assets/", "src=\"./assets/")
         .replace("href=\"/assets/", "href=\"./assets/");
+    let shim = plugin_ipc_shim(plugin_id);
+
+    if !patched.contains("data-dawndesk-plugin-shim") {
+        patched = patched.replace("</head>", &format!("{shim}\n  </head>"));
+    }
 
     if patched != content {
         fs::write(index_path, patched).map_err(|error| error.to_string())?;
     }
 
     Ok(())
+}
+
+fn plugin_ipc_shim(plugin_id: &str) -> String {
+    format!(
+        r#"<script data-dawndesk-plugin-shim>
+(() => {{
+  const pluginId = {plugin_id:?};
+  const scopedCommands = new Set(['plugin_get_data', 'plugin_set_data', 'plugin_delete_data', 'plugin_info']);
+  function patch() {{
+    if (!window.__TAURI__ && window.parent && window.parent.__TAURI__) window.__TAURI__ = window.parent.__TAURI__;
+    const core = window.__TAURI__ && window.__TAURI__.core;
+    if (!core || core.__dawndeskPluginScoped) return Boolean(core);
+    const invoke = core.invoke.bind(core);
+    core.invoke = (command, args = {{}}) => {{
+      if (scopedCommands.has(command)) {{
+        args = {{ pluginId, ...args }};
+      }}
+      return invoke(command, args);
+    }};
+    core.__dawndeskPluginScoped = true;
+    return true;
+  }}
+  if (!patch()) {{
+    const timer = setInterval(() => {{
+      if (patch()) clearInterval(timer);
+    }}, 10);
+    setTimeout(() => clearInterval(timer), 5000);
+  }}
+}})();
+</script>"#
+    )
 }
 
 fn restore_plugin_backup(install_dir: &Path, backup_dir: &Path) {

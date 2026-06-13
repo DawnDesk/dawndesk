@@ -65,6 +65,8 @@ pub fn run() {
             ipc::plugins::plugin_get_data,
             ipc::plugins::plugin_set_data,
             ipc::plugins::plugin_delete_data,
+            ipc::plugins::plugin_info,
+            ipc::plugins::plugin_entry_document,
             ipc::plugins::plugin_emit,
             ipc::ai::ai_get_tools,
             ipc::ai::ai_chat

@@ -1,3 +1,5 @@
+@import 'tailwindcss';
+
 :root {
   --dd-bg-base: #f8f7f4;
   --dd-bg-surface: #ffffff;
