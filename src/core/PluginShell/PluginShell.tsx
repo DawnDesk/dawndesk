@@ -1,21 +1,33 @@
 import { useEffect, useState } from 'react'
+import {
+  Blocks,
+  ExternalLink,
+  FileText,
+  Maximize2,
+  Minimize2,
+  Puzzle,
+  WandSparkles,
+  X,
+} from 'lucide-react'
 import { getPluginEntryDocument } from '../../ipc/host'
-import type { PluginMeta, ToolDefinition } from '../../store/appStore'
+import type { PluginMeta } from '../../store/appStore'
 
 type PluginShellProps = {
   activePlugin: PluginMeta | null
-  tools: ToolDefinition[]
+  onClosePlugin: () => void
+  onOpenStore: () => void
 }
 
-export function PluginShell({ activePlugin, tools }: PluginShellProps) {
-  const pluginTools = tools.filter((tool) => tool.pluginId === activePlugin?.id)
+export function PluginShell({ activePlugin, onClosePlugin, onOpenStore }: PluginShellProps) {
   const [pluginDocument, setPluginDocument] = useState<string | null>(null)
   const [pluginError, setPluginError] = useState<string | null>(null)
+  const [isFullscreen, setIsFullscreen] = useState(false)
 
   useEffect(() => {
     let alive = true
     setPluginDocument(null)
     setPluginError(null)
+    setIsFullscreen(false)
 
     async function loadPluginDocument() {
       if (!activePlugin?.id) return
@@ -37,44 +49,88 @@ export function PluginShell({ activePlugin, tools }: PluginShellProps) {
     }
   }, [activePlugin?.id])
 
+  useEffect(() => {
+    if (!isFullscreen) return
+
+    function exitOnEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setIsFullscreen(false)
+      }
+    }
+
+    window.addEventListener('keydown', exitOnEscape)
+
+    return () => {
+      window.removeEventListener('keydown', exitOnEscape)
+    }
+  }, [isFullscreen])
+
   if (!activePlugin) {
     return (
-      <section className="dashboard">
-        <DashboardHero />
-        <div className="dashboardStats">
-          <StatCard label="Project Workspaces" value="0" detail="Project spaces" />
-          <StatCard label="Finance Projects" value="0" detail="Finance workspaces" />
-          <StatCard label="Saved Prompts" value={tools.length.toString()} detail="Templates and tools" />
-          <StatCard label="Recent Operations" value="0" detail="Latest logged app actions" />
+      <section className="welcomeDashboard flex flex-col items-center justify-center gap-6">
+          <img alt="" src="/logo.png" className="h-30"/>
+        <h1>Welcome to DawnDesk</h1>
+        <p>Your productivity, your plugins, your workspace.</p>
+        <div className="welcomeCards">
+          <article>
+            <span aria-hidden="true">
+              <Puzzle size={34} />
+            </span>
+            <strong>Plugin Powered</strong>
+            <p>Install plugins to extend DawnDesk to your workflow.</p>
+          </article>
+          <article>
+            <span aria-hidden="true">
+              <WandSparkles size={34} />
+            </span>
+            <strong>AI Assisted</strong>
+            <p>Use AI prompts and saved chats to get things done.</p>
+          </article>
+          <article>
+            <span aria-hidden="true">
+              <Blocks size={34} />
+            </span>
+            <strong>All in One</strong>
+            <p>Notes, finance, media, dev tools and more in one place.</p>
+          </article>
         </div>
-        <section className="dashboardPanel emptyDashboard">
-          <h2>Open A Workspace</h2>
-          <p>Install and enable a plugin to mount its interface in the host shell.</p>
-        </section>
+        <button className="primaryButton welcomeCta" type="button" onClick={onOpenStore}>
+          Explore Plugin Store
+        </button>
       </section>
     )
   }
 
   return (
-    <section className="workspaceStack">
-      <section className="dashboard">
-        <DashboardHero />
-        <div className="dashboardStats">
-          <StatCard label="Active Plugin" value="1" detail={activePlugin.name} />
-          <StatCard label="AI Tools" value={pluginTools.length.toString()} detail="Registered tool actions" />
-          <StatCard label="Version" value={activePlugin.version} detail="Installed package" />
-          <StatCard label="Status" value={activePlugin.enabled ? 'On' : 'Off'} detail="Plugin availability" />
-        </div>
-      </section>
-      <section className="workspaceGrid">
-      <article className="pluginFrame">
-        <div className="frameToolbar">
+    <section className="pluginWorkspace">
+      <article className={isFullscreen ? 'pluginFrame fullscreen' : 'pluginFrame'}>
+        <header className="pluginFrameHeader">
           <div>
+            <span className="pluginIcon" aria-hidden="true">
+              <FileText size={16} />
+            </span>
             <strong>{activePlugin.name}</strong>
-            <span>{activePlugin.description}</span>
           </div>
-          <span className="statusPill">v{activePlugin.version}</span>
-        </div>
+          <div className="pluginFrameControls">
+            <button
+              aria-label="Open plugin focus mode"
+              type="button"
+              onClick={() => setIsFullscreen(true)}
+            >
+              <ExternalLink size={15} />
+            </button>
+            <button
+              aria-label={isFullscreen ? 'Exit plugin fullscreen' : 'Enter plugin fullscreen'}
+              type="button"
+              onClick={() => setIsFullscreen((current) => !current)}
+            >
+              {isFullscreen ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+            </button>
+            <button aria-label="Close plugin" type="button" onClick={onClosePlugin}>
+              <X size={16} />
+            </button>
+          </div>
+        </header>
         <div className="frameBody">
           {pluginDocument ? (
             <iframe className="pluginWebview" srcDoc={pluginDocument} title={activePlugin.name} />
@@ -96,60 +152,6 @@ export function PluginShell({ activePlugin, tools }: PluginShellProps) {
           )}
         </div>
       </article>
-
-      <aside className="detailPanel">
-        <h2>Manifest</h2>
-        <dl>
-          <div>
-            <dt>ID</dt>
-            <dd>{activePlugin.id}</dd>
-          </div>
-          <div>
-            <dt>Category</dt>
-            <dd>{activePlugin.category ?? 'uncategorized'}</dd>
-          </div>
-          <div>
-            <dt>Installed</dt>
-            <dd>{activePlugin.installedAt}</dd>
-          </div>
-        </dl>
-        <h2>AI tools</h2>
-        {pluginTools.length === 0 ? (
-          <p className="muted">No tools registered for this plugin yet.</p>
-        ) : (
-          <ul className="toolList">
-            {pluginTools.map((tool) => (
-              <li key={tool.name}>
-                <strong>{tool.name}</strong>
-                <span>{tool.description}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-      </aside>
-      </section>
     </section>
-  )
-}
-
-function DashboardHero() {
-  return (
-    <section className="dashboardHero">
-      <p className="dashboardKicker">Dawndesk</p>
-      <h1>DawnDesk Dashboard</h1>
-      <p>Jump into active work, check your connected workspaces, and review recent app activity from one useful place.</p>
-    </section>
-  )
-}
-
-function StatCard({ detail, label, value }: { detail: string; label: string; value: string }) {
-  return (
-    <article className="statCard">
-      <div>
-        <span>{label}</span>
-        <strong>{value}</strong>
-      </div>
-      <small>{detail}</small>
-    </article>
   )
 }

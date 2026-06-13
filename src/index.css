@@ -1,23 +1,27 @@
 @import 'tailwindcss';
 
 :root {
-  --dd-bg-base: #080808;
-  --dd-bg-surface: #111111;
-  --dd-bg-elevated: #191919;
-  --dd-text-primary: #ffffff;
-  --dd-text-secondary: #c7ccd6;
-  --dd-text-muted: #8f96a3;
-  --dd-accent: #ffcc00;
-  --dd-accent-hover: #ffe066;
-  --dd-accent-muted: #242016;
-  --dd-accent-contrast: #090909;
-  --dd-border: #292929;
-  --dd-border-strong: #3a3a3a;
-  --dd-danger: #ff5c5c;
-  --dd-success: #59d98e;
-  --dd-warning: #ffcc00;
-  --dd-font-display: 'Syne', 'Segoe UI', sans-serif;
-  --dd-font-body: 'DM Sans', 'Segoe UI', sans-serif;
+  --dd-bg-base: #080a0c;
+  --dd-bg-surface: #101316;
+  --dd-bg-elevated: #171b20;
+  --dd-bg-hover: #20252b;
+  --dd-text-primary: #f8fafc;
+  --dd-text-secondary: #cbd5e1;
+  --dd-text-muted: #64748b;
+  --dd-accent: #facc15;
+  --dd-accent-hover: #eab308;
+  --dd-accent-active: #ca8a04;
+  --dd-accent-muted: rgba(250, 204, 21, 0.14);
+  --dd-accent-contrast: #080a0c;
+  --dd-border: #2b3138;
+  --dd-border-soft: #1c2228;
+  --dd-border-strong: #475569;
+  --dd-danger: #ef4444;
+  --dd-success: #22c55e;
+  --dd-warning: #f59e0b;
+  --dd-info: #38bdf8;
+  --dd-font-display: Inter, system-ui, sans-serif;
+  --dd-font-body: Inter, system-ui, sans-serif;
   --dd-font-mono: 'JetBrains Mono', Consolas, monospace;
   --dd-space-1: 4px;
   --dd-space-2: 8px;
@@ -29,10 +33,14 @@
   --dd-space-8: 32px;
   --dd-space-9: 40px;
   --dd-space-10: 48px;
-  --dd-radius-sm: 4px;
-  --dd-radius-md: 8px;
-  --dd-radius-lg: 12px;
+  --dd-radius-sm: 6px;
+  --dd-radius-md: 10px;
+  --dd-radius-lg: 14px;
   --dd-radius-xl: 20px;
+  --dd-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.25);
+  --dd-shadow-md: 0 8px 24px rgba(0, 0, 0, 0.35);
+  --dd-shadow-lg: 0 20px 60px rgba(0, 0, 0, 0.45);
+  --dd-shadow-yellow: 0 0 24px rgba(250, 204, 21, 0.18);
   font-family: var(--dd-font-body);
   color: var(--dd-text-primary);
   background: var(--dd-bg-base);
@@ -44,6 +52,8 @@
 
 * {
   box-sizing: border-box;
+  scrollbar-color: var(--dd-border-strong) var(--dd-bg-base);
+  scrollbar-width: thin;
 }
 
 html,
@@ -54,6 +64,30 @@ body,
 
 body {
   margin: 0;
+}
+
+*::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+}
+
+*::-webkit-scrollbar-track {
+  background: var(--dd-bg-base);
+}
+
+*::-webkit-scrollbar-thumb {
+  min-height: 40px;
+  border: 3px solid var(--dd-bg-base);
+  border-radius: 999px;
+  background: var(--dd-border-strong);
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--dd-text-muted);
+}
+
+*::-webkit-scrollbar-corner {
+  background: var(--dd-bg-base);
 }
 
 button,

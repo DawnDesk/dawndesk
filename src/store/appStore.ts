@@ -73,6 +73,13 @@ export type ChatMessage = {
   content: string
 }
 
+export type SavedChat = {
+  id: string
+  title: string
+  updatedAt: string
+  messages: ChatMessage[]
+}
+
 export const fallbackPlugins: PluginMeta[] = [
   {
     id: 'notes',

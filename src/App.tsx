@@ -7,7 +7,6 @@ import { Settings } from './core/Settings/Settings'
 import { Sidebar } from './core/Sidebar/Sidebar'
 import {
   getSettings,
-  getTools,
   installPlugin,
   listPlugins,
   saveSettings,
@@ -25,11 +24,12 @@ import {
   type PluginDownloadProgress,
   type RegistryPlugin,
   type RegistryRelease,
-  type ToolDefinition,
+  type SavedChat,
   type View,
 } from './store/appStore'
 import './App.css'
 
+const savedChatsStorageKey = 'dawndesk.savedChats'
 const registryUrls = [
   'https://raw.githubusercontent.com/DawnDesk/registry/main/index.json',
   'https://cdn.jsdelivr.net/gh/DawnDesk/registry@main/index.json',
@@ -40,11 +40,13 @@ function App() {
   const [plugins, setPlugins] = useState<PluginMeta[]>([])
   const [registryPlugins, setRegistryPlugins] = useState<RegistryPlugin[]>([])
   const [activePluginId, setActivePluginId] = useState<string | null>(null)
-  const [tools, setTools] = useState<ToolDefinition[]>([])
   const [config, setConfig] = useState<AppConfig>(fallbackConfig)
   const [messages, setMessages] = useState<ChatMessage[]>(initialMessages)
+  const [savedChats, setSavedChats] = useState<SavedChat[]>(loadSavedChats)
+  const [activeChatId, setActiveChatId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
-  const [status, setStatus] = useState('Loading host state')
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [streamingMessageId, setStreamingMessageId] = useState<string | null>(null)
   const [busyPluginId, setBusyPluginId] = useState<string | null>(null)
   const [downloadProgress, setDownloadProgress] = useState<Record<string, PluginDownloadProgress>>(
     {},
@@ -55,10 +57,9 @@ function App() {
     let alive = true
 
     async function load() {
-      const [pluginResult, configResult, toolsResult, registryResult] = await Promise.allSettled([
+      const [pluginResult, configResult, registryResult] = await Promise.allSettled([
         listPlugins(),
         getSettings(),
-        getTools(),
         fetchRegistry(),
       ])
 
@@ -67,9 +68,8 @@ function App() {
       const loadedPlugins = pluginResult.status === 'fulfilled' ? pluginResult.value : []
 
       setPlugins(loadedPlugins)
-      setActivePluginId(loadedPlugins[0]?.id ?? null)
+      setActivePluginId(null)
       setConfig(configResult.status === 'fulfilled' ? configResult.value : fallbackConfig)
-      setTools(toolsResult.status === 'fulfilled' ? toolsResult.value : [])
       setRegistryPlugins(
         registryResult.status === 'fulfilled' ? registryResult.value.plugins : fallbackRegistry(),
       )
@@ -108,6 +108,10 @@ function App() {
     }
   }, [])
 
+  useEffect(() => {
+    localStorage.setItem(savedChatsStorageKey, JSON.stringify(savedChats))
+  }, [savedChats])
+
   const activePlugin = useMemo(
     () => plugins.find((plugin) => plugin.id === activePluginId) ?? null,
     [activePluginId, plugins],
@@ -115,44 +119,133 @@ function App() {
 
   async function sendMessage() {
     const prompt = draft.trim()
-    if (!prompt) return
+    if (!prompt || isGenerating) return
 
     const userMessage: ChatMessage = {
       id: crypto.randomUUID(),
       role: 'user',
       content: prompt,
     }
+    const assistantMessage: ChatMessage = {
+      id: crypto.randomUUID(),
+      role: 'assistant',
+      content: '',
+    }
+    const nextConversation = [...messages, userMessage]
 
-    setMessages((current) => [...current, userMessage])
+    setMessages((current) => {
+      const nextMessages = [...current, userMessage, assistantMessage]
+      updateActiveSavedChat(nextMessages)
+      return nextMessages
+    })
     setDraft('')
+    setIsGenerating(true)
+    setStreamingMessageId(assistantMessage.id)
     setStatus('Generating AI response')
 
     try {
       const response = await sendAIMessage(
-        [...messages, userMessage].map(({ role, content }) => ({ role, content })),
+        nextConversation.map(({ role, content }) => ({ role, content })),
       )
 
-      setMessages((current) => [
-        ...current,
-        {
-          id: crypto.randomUUID(),
-          role: 'assistant',
-          content: response,
-        },
-      ])
+      await streamAssistantMessage(assistantMessage.id, response)
       setStatus('AI response complete')
     } catch {
-      setMessages((current) => [
-        ...current,
-        {
-          id: crypto.randomUUID(),
-          role: 'assistant',
-          content:
-            'AI provider wiring is available, but no configured provider responded yet. Add an API key in Settings when provider integration is enabled.',
-        },
-      ])
+      await streamAssistantMessage(
+        assistantMessage.id,
+        'AI provider wiring is available, but no configured provider responded yet. Add an API key in Settings when provider integration is enabled.',
+      )
       setStatus('AI response used local fallback')
+    } finally {
+      setIsGenerating(false)
+      setStreamingMessageId(null)
     }
+  }
+
+  async function streamAssistantMessage(messageId: string, content: string) {
+    const chunkSize = content.length > 180 ? 4 : 2
+    let streamed = ''
+    let finalMessages: ChatMessage[] = []
+
+    for (let index = 0; index < content.length; index += chunkSize) {
+      streamed += content.slice(index, index + chunkSize)
+      await delay(10)
+
+      setMessages((current) => {
+        finalMessages = current.map((message) =>
+          message.id === messageId ? { ...message, content: streamed } : message,
+        )
+        return finalMessages
+      })
+    }
+
+    updateActiveSavedChat(finalMessages)
+  }
+
+  function saveCurrentChat() {
+    const now = new Date().toISOString()
+    const title = chatTitle(messages)
+
+    if (activeChatId) {
+      setSavedChats((current) =>
+        current.map((chat) =>
+          chat.id === activeChatId ? { ...chat, title, updatedAt: now, messages } : chat,
+        ),
+      )
+      setStatus(`Saved ${title}`)
+      return
+    }
+
+    const chat: SavedChat = {
+      id: crypto.randomUUID(),
+      title,
+      updatedAt: now,
+      messages,
+    }
+
+    setSavedChats((current) => [chat, ...current])
+    setActiveChatId(chat.id)
+    setStatus(`Saved ${title}`)
+  }
+
+  function openSavedChat(chat: SavedChat) {
+    setMessages(chat.messages)
+    setActiveChatId(chat.id)
+    setStatus(`Opened ${chat.title}`)
+  }
+
+  function deleteSavedChat(id: string) {
+    setSavedChats((current) => current.filter((chat) => chat.id !== id))
+    if (activeChatId === id) {
+      setActiveChatId(null)
+      setMessages(initialMessages)
+    }
+    setStatus('Saved chat deleted')
+  }
+
+  function startNewChat() {
+    setActiveChatId(null)
+    setMessages(initialMessages)
+    setDraft('')
+    setStatus('New chat ready')
+  }
+
+  function updateActiveSavedChat(nextMessages: ChatMessage[]) {
+    if (!activeChatId) return
+
+    const now = new Date().toISOString()
+    setSavedChats((current) =>
+      current.map((chat) =>
+        chat.id === activeChatId
+          ? {
+              ...chat,
+              title: chatTitle(nextMessages),
+              updatedAt: now,
+              messages: nextMessages,
+            }
+          : chat,
+      ),
+    )
   }
 
   async function saveConfig(nextConfig: AppConfig) {
@@ -168,10 +261,9 @@ function App() {
   }
 
   async function refreshInstalledPlugins(nextActiveId?: string | null) {
-    const [loadedPlugins, loadedTools] = await Promise.all([listPlugins(), getTools()])
+    const loadedPlugins = await listPlugins()
 
     setPlugins(loadedPlugins)
-    setTools(loadedTools)
 
     if (nextActiveId !== undefined) {
       setActivePluginId(nextActiveId)
@@ -180,7 +272,7 @@ function App() {
 
     setActivePluginId((current) => {
       if (current && loadedPlugins.some((plugin) => plugin.id === current)) return current
-      return loadedPlugins[0]?.id ?? null
+      return null
     })
 
     return loadedPlugins
@@ -255,17 +347,15 @@ function App() {
       />
 
       <section className="content">
-        <header className="topbar">
-          <div>
-            <strong className="topbarBrand">DawnDesk</strong>
-            <p className="eyebrow">{status}</p>
-          </div>
-          <div className="topbarActions">
-            <span className="themeToggle">{config.theme === 'dark' ? 'Light' : 'Dark'}</span>
-          </div>
-        </header>
+        
 
-        {view === 'workspace' && <PluginShell activePlugin={activePlugin} tools={tools} />}
+        {view === 'workspace' && (
+          <PluginShell
+            activePlugin={activePlugin}
+            onClosePlugin={() => setActivePluginId(null)}
+            onOpenStore={() => setView('store')}
+          />
+        )}
         {view === 'store' && (
           <PluginStore
             busyPluginId={busyPluginId}
@@ -283,17 +373,28 @@ function App() {
         )}
         {view === 'ai' && (
           <AIPanel
+            activeChatId={activeChatId}
             draft={draft}
+            isGenerating={isGenerating}
             messages={messages}
+            onDeleteChat={deleteSavedChat}
+            onNewChat={startNewChat}
+            onOpenChat={openSavedChat}
+            onSaveChat={saveCurrentChat}
+            savedChats={savedChats}
             sendMessage={sendMessage}
             setDraft={setDraft}
-            tools={tools}
+            streamingMessageId={streamingMessageId}
           />
         )}
         {view === 'settings' && <Settings config={config} saveConfig={saveConfig} />}
       </section>
     </main>
   )
+}
+
+function setStatus(_message: string) {
+  // Runtime status is intentionally kept out of the visual shell.
 }
 
 async function fetchRegistry(): Promise<PluginRegistry> {
@@ -321,6 +422,47 @@ function fallbackRegistry(): RegistryPlugin[] {
     latestVersion: plugin.version,
     releases: {},
   }))
+}
+
+function loadSavedChats(): SavedChat[] {
+  try {
+    const value = localStorage.getItem(savedChatsStorageKey)
+    if (!value) return []
+
+    const parsed = JSON.parse(value)
+    if (!Array.isArray(parsed)) return []
+
+    return parsed.filter(isSavedChat)
+  } catch {
+    return []
+  }
+}
+
+function isSavedChat(value: unknown): value is SavedChat {
+  if (!value || typeof value !== 'object') return false
+
+  const chat = value as SavedChat
+  return (
+    typeof chat.id === 'string' &&
+    typeof chat.title === 'string' &&
+    typeof chat.updatedAt === 'string' &&
+    Array.isArray(chat.messages)
+  )
+}
+
+function chatTitle(messages: ChatMessage[]) {
+  const message =
+    messages.find((item) => item.role === 'user' && item.content.trim()) ??
+    messages.find((item) => item.content.trim())
+  const title = message?.content.trim().replace(/\s+/g, ' ') ?? 'New chat'
+
+  return title.length > 42 ? `${title.slice(0, 39)}...` : title
+}
+
+function delay(ms: number) {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms)
+  })
 }
 
 function formatError(error: unknown, fallback: string) {

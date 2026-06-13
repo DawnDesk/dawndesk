@@ -1,6 +1,16 @@
 import { useEffect, useState } from 'react'
 import { relaunch } from '@tauri-apps/plugin-process'
 import { check, type Update } from '@tauri-apps/plugin-updater'
+import {
+  Bot,
+  Database,
+  Palette,
+  RefreshCw,
+  Settings as SettingsIcon,
+  SlidersHorizontal,
+  Sparkles,
+  type LucideIcon,
+} from 'lucide-react'
 import type { AppConfig } from '../../store/appStore'
 
 type SettingsProps = {
@@ -34,6 +44,15 @@ const modelOptions: Record<AppConfig['aiProvider'], string[]> = {
   ],
   openai: ['gpt-4.1-mini', 'gpt-4.1', 'gpt-4o-mini', 'gpt-4o'],
 }
+
+const settingsSections: Array<{ icon: LucideIcon; label: string }> = [
+  { icon: SettingsIcon, label: 'General' },
+  { icon: Bot, label: 'AI Provider' },
+  { icon: Palette, label: 'Appearance' },
+  { icon: Database, label: 'Registry' },
+  { icon: RefreshCw, label: 'Updates' },
+  { icon: SlidersHorizontal, label: 'Advanced' },
+]
 
 export function Settings({ config, saveConfig }: SettingsProps) {
   const selectedModels = modelOptions[config.aiProvider]
@@ -139,83 +158,104 @@ export function Settings({ config, saveConfig }: SettingsProps) {
   }
 
   return (
-    <section className="settingsGrid">
-      <label className="field">
-        <span>Data root</span>
-        <input
-          onChange={(event) => saveConfig({ ...config, dataRoot: event.target.value })}
-          value={config.dataRoot}
-        />
-      </label>
-      <label className="field">
-        <span>AI provider</span>
-        <select
-          onChange={(event) => saveProvider(event.target.value as AppConfig['aiProvider'])}
-          value={config.aiProvider}
-        >
-          <option value="openai">OpenAI</option>
-          <option value="anthropic">Anthropic</option>
-          <option value="ollamaCloud">Ollama Cloud</option>
-        </select>
-      </label>
-      <label className="field">
-        <span>{providerLabels[config.aiProvider]} API key</span>
-        <input
-          autoComplete="off"
-          onChange={(event) => saveApiKey(event.target.value)}
-          type="password"
-          value={selectedApiKey}
-        />
-      </label>
-      <label className="field">
-        <span>AI model</span>
-        <select
-          onChange={(event) => saveConfig({ ...config, aiModel: event.target.value })}
-          value={selectedModel}
-        >
-          {selectedModels.map((model) => (
-            <option key={model} value={model}>
-              {model}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label className="field">
-        <span>Theme</span>
-        <select
-          onChange={(event) =>
-            saveConfig({ ...config, theme: event.target.value as AppConfig['theme'] })
-          }
-          value={config.theme}
-        >
-          <option value="system">System</option>
-          <option value="light">Light</option>
-          <option value="dark">Dark</option>
-        </select>
-      </label>
-      <label className="field wide">
-        <span>Registry URL</span>
-        <input
-          onChange={(event) => saveConfig({ ...config, registryUrl: event.target.value })}
-          value={config.registryUrl}
-        />
-      </label>
-      {availableUpdate ? (
-        <section className="settingsAction wide" aria-label="DawnDesk updates">
-          <div>
-            <span>App updates</span>
-            <p>{updateStatus}</p>
-          </div>
-          <button
-            className="primaryButton"
-            disabled={installingUpdate}
-            type="button"
-            onClick={installUpdate}
+    <section className="settingsPage">
+      <aside className="settingsNav" aria-label="Settings sections">
+        {settingsSections.map((section, index) => {
+          const Icon = section.icon
+
+          return (
+            <button className={index === 0 ? 'active' : ''} key={section.label} type="button">
+              <Icon size={15} aria-hidden="true" />
+              {section.label}
+            </button>
+          )
+        })}
+      </aside>
+      <section className="settingsGrid">
+        <label className="field wide">
+          <span>Data Root Directory</span>
+          <input
+            onChange={(event) => saveConfig({ ...config, dataRoot: event.target.value })}
+            value={config.dataRoot}
+          />
+        </label>
+        <label className="field">
+          <span>Language</span>
+          <select defaultValue="system">
+            <option value="system">System</option>
+          </select>
+        </label>
+        <label className="field">
+          <span>Theme</span>
+          <select
+            onChange={(event) =>
+              saveConfig({ ...config, theme: event.target.value as AppConfig['theme'] })
+            }
+            value={config.theme}
           >
-            {installingUpdate ? 'Updating' : 'Update now'}
-          </button>
-        </section>
-      ) : null}
+            <option value="system">System</option>
+            <option value="light">Dark (Yellow)</option>
+            <option value="dark">Dark</option>
+          </select>
+        </label>
+        <label className="field">
+          <span>AI Provider</span>
+          <select
+            onChange={(event) => saveProvider(event.target.value as AppConfig['aiProvider'])}
+            value={config.aiProvider}
+          >
+            <option value="openai">OpenAI</option>
+            <option value="anthropic">Anthropic</option>
+            <option value="ollamaCloud">Ollama Cloud</option>
+          </select>
+        </label>
+        <label className="field">
+          <span>{providerLabels[config.aiProvider]} API Key</span>
+          <input
+            autoComplete="off"
+            onChange={(event) => saveApiKey(event.target.value)}
+            type="password"
+            value={selectedApiKey}
+          />
+        </label>
+        <label className="field">
+          <span>Model</span>
+          <select
+            onChange={(event) => saveConfig({ ...config, aiModel: event.target.value })}
+            value={selectedModel}
+          >
+            {selectedModels.map((model) => (
+              <option key={model} value={model}>
+                {model}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="field wide">
+          <span>Registry URL</span>
+          <input
+            onChange={(event) => saveConfig({ ...config, registryUrl: event.target.value })}
+            value={config.registryUrl}
+          />
+        </label>
+        {availableUpdate ? (
+          <section className="settingsAction wide" aria-label="DawnDesk updates">
+            <div>
+              <span>Updates</span>
+              <p>{updateStatus}</p>
+            </div>
+            <button
+              className="primaryButton"
+              disabled={installingUpdate}
+              type="button"
+              onClick={installUpdate}
+            >
+              <Sparkles size={15} aria-hidden="true" />
+              {installingUpdate ? 'Updating' : 'Update now'}
+            </button>
+          </section>
+        ) : null}
+      </section>
     </section>
   )
 }

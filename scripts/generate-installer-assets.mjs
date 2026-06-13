@@ -173,6 +173,49 @@ function header() {
   });
 }
 
+function wixDialog() {
+  return createBitmap(493, 312, (ctx) => {
+    paintBackground(ctx);
+    const { rect, line, circle, width, height } = ctx;
+
+    rect(0, 0, width, 1, colors.border);
+    rect(0, height - 1, width, 1, colors.border);
+    paintDawnMark(ctx, 40, 36, 1.6);
+
+    rect(48, 126, 104, 4, colors.accent);
+    rect(48, 142, 152, 2, colors.border);
+    rect(48, 153, 118, 2, colors.border);
+
+    for (let i = 0; i < 4; i += 1) {
+      const y = 214 + i * 20;
+      circle(56, y, 5, colors.accent);
+      rect(72, y - 2, 90 - i * 9, 4, i === 0 ? colors.accent : colors.border);
+    }
+
+    line(-42, 300, 196, 62, colors.accentDim);
+    line(-38, 304, 200, 66, colors.accent);
+    line(324, 312, 506, 130, colors.border);
+    circle(430, 72, 12, colors.accent);
+  });
+}
+
+function wixBanner() {
+  return createBitmap(493, 58, (ctx) => {
+    paintBackground(ctx);
+    const { rect, line, circle, width, height } = ctx;
+
+    rect(0, height - 1, width, 1, colors.border);
+    paintDawnMark(ctx, 18, 10, 0.88);
+    rect(64, 16, 102, 3, colors.accent);
+    rect(64, 28, 76, 2, colors.text);
+    rect(64, 37, 114, 2, colors.muted);
+    line(width - 86, height, width - 28, 0, colors.accentDim);
+    circle(width - 42, 20, 7, colors.accent);
+  });
+}
+
 mkdirSync(outDir, { recursive: true });
 writeFileSync(join(outDir, 'sidebar.bmp'), sidebar());
 writeFileSync(join(outDir, 'header.bmp'), header());
+writeFileSync(join(outDir, 'wix-dialog.bmp'), wixDialog());
+writeFileSync(join(outDir, 'wix-banner.bmp'), wixBanner());

@@ -1,22 +1,64 @@
-import type { ChatMessage, ToolDefinition } from '../../store/appStore'
+import { useEffect, useRef } from 'react'
+import { Plus, Save, Send, Trash2 } from 'lucide-react'
+import type { ChatMessage, SavedChat } from '../../store/appStore'
 
 type AIPanelProps = {
+  activeChatId: string | null
   draft: string
+  isGenerating: boolean
   messages: ChatMessage[]
+  onDeleteChat: (id: string) => void
+  onNewChat: () => void
+  onOpenChat: (chat: SavedChat) => void
+  onSaveChat: () => void
+  savedChats: SavedChat[]
   sendMessage: () => void
   setDraft: (value: string) => void
-  tools: ToolDefinition[]
+  streamingMessageId: string | null
 }
 
-export function AIPanel({ draft, messages, sendMessage, setDraft, tools }: AIPanelProps) {
+export function AIPanel({
+  activeChatId,
+  draft,
+  isGenerating,
+  messages,
+  onDeleteChat,
+  onNewChat,
+  onOpenChat,
+  onSaveChat,
+  savedChats,
+  sendMessage,
+  setDraft,
+  streamingMessageId,
+}: AIPanelProps) {
+  const messageListRef = useRef<HTMLDivElement | null>(null)
+
+  useEffect(() => {
+    const messageList = messageListRef.current
+    if (!messageList) return
+
+    messageList.scrollTo({
+      top: messageList.scrollHeight,
+      behavior: 'smooth',
+    })
+  }, [isGenerating, messages])
+
   return (
     <section className="aiLayout">
       <div className="chatPanel">
-        <div className="messageList">
+        <div className="messageList" ref={messageListRef}>
           {messages.map((message) => (
-            <article className={`message ${message.role}`} key={message.id}>
-              <span>{message.role}</span>
-              <MessageContent content={message.content} />
+            <article
+              className={`message ${message.role} ${
+                message.id === streamingMessageId ? 'streaming' : ''
+              }`}
+              key={message.id}
+            >
+              <span className="messageRole">{message.role}</span>
+              <MessageContent
+                content={message.content}
+                isStreaming={message.id === streamingMessageId}
+              />
             </article>
           ))}
         </div>
@@ -29,25 +71,50 @@ export function AIPanel({ draft, messages, sendMessage, setDraft, tools }: AIPan
         >
           <textarea
             aria-label="Message"
+            disabled={isGenerating}
             onChange={(event) => setDraft(event.target.value)}
             placeholder="Ask DawnDesk to use installed plugin tools"
             value={draft}
           />
-          <button className="primaryButton" type="submit">
-            Send
+          <button className="primaryButton sendButton" disabled={isGenerating} type="submit">
+            <Send size={16} aria-hidden="true" />
+            {isGenerating ? 'Sending' : 'Send'}
           </button>
         </form>
       </div>
-      <aside className="detailPanel">
-        <h2>Registered tools</h2>
-        {tools.length === 0 ? (
-          <p className="muted">Tools will appear after plugins with aiTools are installed.</p>
+      <aside className="detailPanel savedChatsPanel">
+        <div className="savedChatsHeader">
+          <h2>Saved chats</h2>
+          <button className="secondaryButton" type="button" onClick={onNewChat}>
+            <Plus size={15} aria-hidden="true" />
+            New
+          </button>
+        </div>
+        <button className="primaryButton saveChatButton" type="button" onClick={onSaveChat}>
+          <Save size={15} aria-hidden="true" />
+          Save current chat
+        </button>
+        {savedChats.length === 0 ? (
+          <p className="muted">Saved conversations will appear here.</p>
         ) : (
-          <ul className="toolList">
-            {tools.map((tool) => (
-              <li key={`${tool.pluginId}-${tool.name}`}>
-                <strong>{tool.name}</strong>
-                <span>{tool.pluginId}</span>
+          <ul className="savedChatList">
+            {savedChats.map((chat) => (
+              <li
+                className={chat.id === activeChatId ? 'savedChat active' : 'savedChat'}
+                key={chat.id}
+              >
+                <button type="button" onClick={() => onOpenChat(chat)}>
+                  <strong>{chat.title}</strong>
+                  <span>{formatSavedDate(chat.updatedAt)}</span>
+                </button>
+                <button
+                  className="savedChatDelete"
+                  type="button"
+                  aria-label={`Delete ${chat.title}`}
+                  onClick={() => onDeleteChat(chat.id)}
+                >
+                  <Trash2 size={15} aria-hidden="true" />
+                </button>
               </li>
             ))}
           </ul>
@@ -57,11 +124,33 @@ export function AIPanel({ draft, messages, sendMessage, setDraft, tools }: AIPan
   )
 }
 
-function MessageContent({ content }: { content: string }) {
+function formatSavedDate(value: string) {
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'Saved'
+
+  return date.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function MessageContent({ content, isStreaming }: { content: string; isStreaming: boolean }) {
+  if (!content && isStreaming) {
+    return (
+      <div className="typingIndicator" aria-label="Assistant is writing">
+        <span />
+        <span />
+        <span />
+      </div>
+    )
+  }
+
   const blocks = parseMarkdownBlocks(content)
 
   return (
-    <div className="messageContent">
+    <div className={isStreaming ? 'messageContent streamingContent' : 'messageContent'}>
       {blocks.map((block, index) => {
         if (block.type === 'heading') {
           return <h3 key={index}>{renderInlineMarkdown(block.content)}</h3>
@@ -105,6 +194,7 @@ function MessageContent({ content }: { content: string }) {
 
         return <p key={index}>{renderInlineMarkdown(block.content)}</p>
       })}
+      {isStreaming && <span className="streamCursor" aria-hidden="true" />}
     </div>
   )
 }
