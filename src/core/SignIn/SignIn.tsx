@@ -8,8 +8,7 @@ type SignInProps = {
 
 export function SignIn({ isConfigured, isSigningIn, onSignIn }: SignInProps) {
   return (
-    <main className="relative grid min-h-screen overflow-hidden bg-[#03080c] text-[var(--dd-text-primary)]">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_28%_10%,rgba(250,204,21,0.12),transparent_24%),radial-gradient(circle_at_84%_16%,rgba(59,130,246,0.12),transparent_22%),linear-gradient(180deg,rgba(255,255,255,0.018),transparent_48%)]" />
+    <main className="relative grid min-h-screen overflow-hidden bg-black text-[var(--dd-text-primary)]">
       <div className="relative mx-auto grid w-full max-w-[1120px] grid-cols-[minmax(0,1fr)_420px] items-center gap-[var(--dd-space-9)] px-[var(--dd-space-8)] py-[var(--dd-space-8)] max-[900px]:grid-cols-1 max-[900px]:px-[var(--dd-space-5)]">
         <section className="max-w-[620px]">
           <div className="flex items-center gap-[var(--dd-space-3)]">
@@ -35,7 +34,7 @@ export function SignIn({ isConfigured, isSigningIn, onSignIn }: SignInProps) {
           </div>
         </section>
 
-        <section className="rounded-[var(--dd-radius-xl)] border border-[rgba(148,163,184,0.16)] bg-[linear-gradient(180deg,rgba(255,255,255,0.06),rgba(255,255,255,0.02)),rgba(8,14,20,0.88)] p-[var(--dd-space-6)] shadow-[0_28px_80px_rgba(0,0,0,0.42)] backdrop-blur-xl">
+        <section className="rounded-[var(--dd-radius-xl)] border border-[rgba(148,163,184,0.16)] bg-black p-[var(--dd-space-6)] shadow-[0_28px_80px_rgba(0,0,0,0.42)]">
           <div className="grid size-14 place-items-center rounded-[var(--dd-radius-lg)] bg-[rgba(250,204,21,0.12)] text-[var(--dd-accent)] shadow-[inset_0_0_0_1px_rgba(250,204,21,0.2)]">
             <ShieldCheck size={26} aria-hidden="true" />
           </div>

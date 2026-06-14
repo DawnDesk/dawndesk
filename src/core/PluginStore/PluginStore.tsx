@@ -5,7 +5,6 @@ import {
   ChartNoAxesCombined,
   Code2,
   Download,
-  ExternalLink,
   FileText,
   FolderOpen,
   Globe2,
@@ -50,7 +49,7 @@ type MarketplaceCard = {
 }
 
 const panel =
-  'border border-[rgba(148,163,184,0.16)] bg-[linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.012)),rgba(8,14,20,0.82)] shadow-[0_20px_60px_rgba(0,0,0,0.28)] backdrop-blur-xl'
+  'border border-[rgba(148,163,184,0.16)] bg-black shadow-[0_20px_60px_rgba(0,0,0,0.28)]'
 const primaryButton =
   'inline-flex min-h-10 items-center justify-center gap-[var(--dd-space-2)] rounded-[var(--dd-radius-md)] border border-[var(--dd-accent)] bg-[var(--dd-accent)] px-[var(--dd-space-5)] text-[0.92rem] font-extrabold text-[var(--dd-accent-contrast)] shadow-[0_14px_30px_rgba(250,204,21,0.18)] transition-[background,transform] hover:-translate-y-px hover:bg-[var(--dd-accent-hover)] disabled:cursor-not-allowed disabled:opacity-65'
 const secondaryButton =
@@ -106,8 +105,7 @@ export function PluginStore({
   }
 
   return (
-    <section className="relative min-h-0 flex-1 overflow-y-auto bg-[#03080c] px-[var(--dd-space-7)] pb-[var(--dd-space-6)] pt-[var(--dd-space-6)] max-[900px]:px-[var(--dd-space-4)]">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_26%_0%,rgba(250,204,21,0.08),transparent_22%),radial-gradient(circle_at_90%_12%,rgba(59,130,246,0.08),transparent_22%)]" />
+    <section className="relative min-h-0 flex-1 overflow-y-auto bg-black px-[var(--dd-space-7)] pb-[var(--dd-space-6)] pt-[var(--dd-space-6)] max-[900px]:px-[var(--dd-space-4)]">
 
       <div className="relative mx-auto grid w-full max-w-[1320px] gap-[var(--dd-space-5)]">
         <header className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-[var(--dd-space-5)] max-[1060px]:grid-cols-1">
@@ -143,10 +141,7 @@ export function PluginStore({
                 </option>
               ))}
             </select>
-            <button className={primaryButton} type="button">
-              <ExternalLink size={16} aria-hidden="true" />
-              Explore Marketplace
-            </button>
+       
           </div>
         </header>
 
@@ -165,7 +160,7 @@ export function PluginStore({
             className="absolute inset-0 -z-20 h-full w-full object-cover"
             src="/marketplace-plugin.png"
           />
-          <div className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(9,13,22,0.94)_0%,rgba(12,17,28,0.62)_38%,rgba(12,17,28,0.08)_75%,rgba(12,17,28,0.18)_100%)]" />
+          <div className="" />
           <div className="max-w-[560px]">
             <h2 className="m-0 text-[clamp(1.7rem,3vw,2.4rem)] font-extrabold leading-tight text-[var(--dd-text-primary)]">
               Supercharge your workflow
@@ -301,7 +296,7 @@ function PluginCard({
       tabIndex={0}
     >
       <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-[var(--dd-space-3)]">
-        <span className={`grid size-11 place-items-center rounded-[var(--dd-radius-sm)] bg-gradient-to-br ${card.color} text-white shadow-[0_12px_26px_rgba(0,0,0,0.26)]`}>
+        <span className={`grid size-11 place-items-center rounded-[var(--dd-radius-sm)] ${card.color} text-white shadow-[0_12px_26px_rgba(0,0,0,0.26)]`}>
           <Icon size={22} aria-hidden="true" />
         </span>
         <div className="min-w-0">
@@ -413,8 +408,7 @@ function MarketplacePluginDetail({
   const installedDate = installedPlugin ? formatDetailDate(installedPlugin.installedAt) : 'Not installed'
 
   return (
-    <section className="relative min-h-0 flex-1 overflow-y-auto bg-[#03080c] px-[var(--dd-space-7)] pb-[var(--dd-space-6)] pt-[var(--dd-space-5)] max-[900px]:px-[var(--dd-space-4)]">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_32%_0%,rgba(250,204,21,0.08),transparent_23%),radial-gradient(circle_at_92%_12%,rgba(59,130,246,0.08),transparent_22%)]" />
+    <section className="relative min-h-0 flex-1 overflow-y-auto bg-black px-[var(--dd-space-7)] pb-[var(--dd-space-6)] pt-[var(--dd-space-5)] max-[900px]:px-[var(--dd-space-4)]">
 
       <div className="relative mx-auto grid w-full max-w-[1320px] gap-[var(--dd-space-5)]">
         <div className="flex items-center justify-between gap-[var(--dd-space-4)]">
@@ -433,12 +427,10 @@ function MarketplacePluginDetail({
         </div>
 
         <section className="relative isolate overflow-hidden rounded-[var(--dd-radius-lg)] border border-[rgba(148,163,184,0.14)] bg-[var(--dd-bg-surface)] p-[var(--dd-space-7)] shadow-[0_24px_70px_rgba(0,0,0,0.32)] max-[720px]:p-[var(--dd-space-5)]">
-          <div className="absolute inset-0 -z-20 bg-[radial-gradient(circle_at_66%_45%,rgba(250,204,21,0.3),transparent_16%),linear-gradient(120deg,rgba(10,15,22,0.98)_0%,rgba(10,15,22,0.86)_42%,rgba(79,45,14,0.58)_68%,rgba(4,9,14,0.98)_100%)]" />
-          <div className="absolute right-[8%] top-[18%] -z-10 h-40 w-24 rounded-t-full border border-[rgba(250,204,21,0.18)] bg-[linear-gradient(180deg,rgba(255,255,255,0.18),rgba(255,255,255,0.02))] shadow-[0_0_90px_rgba(250,204,21,0.26)] max-[900px]:hidden" />
-          <div className="absolute bottom-0 right-0 -z-10 h-28 w-[58%] bg-[linear-gradient(180deg,transparent,rgba(2,6,10,0.76))]" />
+          <div className="absolute inset-0 -z-20 bg-black/85" />
 
           <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] gap-[var(--dd-space-6)] max-[860px]:grid-cols-1">
-            <span className={`grid size-[84px] place-items-center rounded-[var(--dd-radius-lg)] bg-gradient-to-br ${card.color} text-white shadow-[0_22px_42px_rgba(250,204,21,0.18)]`}>
+            <span className={`grid size-[84px] place-items-center rounded-[var(--dd-radius-lg)] ${card.color} text-white shadow-[0_22px_42px_rgba(250,204,21,0.18)]`}>
               <Icon size={38} aria-hidden="true" />
             </span>
             <div className="min-w-0">
@@ -692,12 +684,12 @@ function mergeMarketplacePlugins(registryPlugins: RegistryPlugin[]): Marketplace
 }
 
 const iconColors = [
-  'from-[#ffb020] to-[#ffcc18]',
-  'from-[#2563eb] to-[#60a5fa]',
-  'from-[#db2777] to-[#f43f5e]',
-  'from-[#4b5563] to-[#1f2937]',
-  'from-[#7c3aed] to-[#a855f7]',
-  'from-[#4ade80] to-[#22c55e]',
+  'bg-[#111111]',
+  'bg-[#111111]',
+  'bg-[#111111]',
+  'bg-[#111111]',
+  'bg-[#111111]',
+  'bg-[#111111]',
 ]
 
 function getPluginIcon(plugin: RegistryPlugin | MarketplaceCard): LucideIcon {

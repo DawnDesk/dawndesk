@@ -33,7 +33,7 @@ const primaryButton =
 const secondaryButton =
   'inline-flex min-h-9 items-center justify-center gap-[var(--dd-space-2)] rounded-[var(--dd-radius-sm)] border border-[rgba(148,163,184,0.14)] bg-[rgba(255,255,255,0.025)] px-[var(--dd-space-4)] text-[0.9rem] font-bold text-[var(--dd-text-primary)] transition-[border-color,background,transform] hover:-translate-y-px hover:border-[rgba(250,204,21,0.28)] hover:bg-[rgba(255,255,255,0.045)] disabled:cursor-not-allowed disabled:opacity-65'
 const localPanel =
-  'border border-[rgba(148,163,184,0.16)] bg-[linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.012)),rgba(8,14,20,0.82)] shadow-[0_20px_60px_rgba(0,0,0,0.28)] backdrop-blur-xl'
+  'border border-[rgba(148,163,184,0.16)] bg-black shadow-[0_20px_60px_rgba(0,0,0,0.28)]'
 
 type PluginDocumentState = {
   document: string | null
@@ -132,7 +132,7 @@ export function PluginShell({
         className={
           isFullscreen
             ? 'fixed inset-0 z-30 flex min-w-0 flex-col overflow-hidden border-0 bg-[var(--dd-bg-base)] animate-[panelIn_180ms_ease_both]'
-            : 'flex min-w-0 flex-1 flex-col overflow-hidden border-l border-[var(--dd-border)] bg-[linear-gradient(180deg,var(--dd-panel-sheen),transparent),var(--dd-bg-surface)] shadow-[var(--dd-shadow-md)] animate-[panelIn_260ms_ease_both]'
+            : 'flex min-w-0 flex-1 flex-col overflow-hidden border-l border-[var(--dd-border)] bg-black shadow-[var(--dd-shadow-md)] animate-[panelIn_260ms_ease_both]'
         }
       >
         <header
@@ -229,8 +229,7 @@ function LocalPluginPage({
   const enabledPlugins = plugins.filter((plugin) => plugin.enabled).length
 
   return (
-    <section className="relative min-h-0 flex-1 overflow-y-auto bg-[#03080c] px-[var(--dd-space-7)] pb-[var(--dd-space-6)] pt-[var(--dd-space-6)] max-[900px]:px-[var(--dd-space-4)]">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_26%_0%,rgba(250,204,21,0.08),transparent_22%),radial-gradient(circle_at_90%_12%,rgba(59,130,246,0.08),transparent_22%)]" />
+    <section className="relative min-h-0 flex-1 overflow-y-auto bg-black px-[var(--dd-space-7)] pb-[var(--dd-space-6)] pt-[var(--dd-space-6)] max-[900px]:px-[var(--dd-space-4)]">
 
       <div className="relative mx-auto grid w-full max-w-[1320px] gap-[var(--dd-space-5)]">
         <header className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-[var(--dd-space-5)] max-[860px]:grid-cols-1">
@@ -280,7 +279,7 @@ function LocalPluginPage({
             className="absolute inset-0 -z-20 h-full w-full object-cover"
             src="/local-plugin.png"
           />
-          <div className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(4,9,14,0.95)_0%,rgba(4,9,14,0.7)_38%,rgba(4,9,14,0.16)_75%,rgba(4,9,14,0.28)_100%)]" />
+          <div className="" />
           <div className="max-w-[560px]">
             <h2 className="m-0 text-[clamp(1.75rem,3vw,2.45rem)] font-extrabold leading-tight text-[var(--dd-text-primary)]">
               Your local plugin workspace

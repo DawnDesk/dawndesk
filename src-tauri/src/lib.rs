@@ -86,6 +86,7 @@ pub fn run() {
             ipc::plugins::plugin_emit,
             ipc::ai::ai_get_tools,
             ipc::ai::ai_call,
+            ipc::ai::ai_run_tool,
             ipc::ai::ai_chat
         ])
         .run(tauri::generate_context!())

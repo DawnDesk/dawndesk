@@ -7,7 +7,11 @@ use crate::{
     settings::config::user_data_root,
     AppState,
 };
+use serde::Deserialize;
 use serde_json::{json, Value};
+use tauri::Emitter;
+
+const MAX_TOOL_ROUNDS: usize = 4;
 
 #[tauri::command]
 pub fn ai_get_tools(state: tauri::State<'_, AppState>) -> Result<Vec<ToolDefinition>, String> {
@@ -20,10 +24,65 @@ pub fn ai_chat(
     messages: Vec<ChatMessage>,
     stream: bool,
     state: tauri::State<'_, AppState>,
+    app: tauri::AppHandle,
 ) -> Result<String, String> {
     let config = current_config(&state)?;
     let tools = collect_tools(&config)?;
-    chat(&config, &messages, stream, &tools)
+    if stream {
+        return chat(&config, &messages, stream, &tools);
+    }
+
+    let mut conversation = messages;
+    let mut executions = Vec::new();
+
+    for _ in 0..MAX_TOOL_ROUNDS {
+        let response = chat(&config, &conversation, false, &tools)?;
+        let calls = extract_tool_calls(&response)?;
+
+        if calls.is_empty() {
+            return Ok(format_ai_response(&response, &executions));
+        }
+
+        let mut round_results = Vec::new();
+        let mut has_mutation = false;
+
+        for call in calls {
+            has_mutation |= call.is_mutation();
+            let result = execute_tool_call(&config, &state, Some(&app), &call)?;
+            executions.push(ToolExecution {
+                call: call.clone(),
+                result: result.clone(),
+            });
+            round_results.push(json!({
+                "pluginId": call.plugin_id,
+                "name": call.name,
+                "arguments": call.arguments,
+                "result": result,
+            }));
+        }
+
+        if has_mutation {
+            return Ok(format_ai_response(&response, &executions));
+        }
+
+        conversation.push(ChatMessage {
+            role: "assistant".to_string(),
+            content: response,
+        });
+        conversation.push(ChatMessage {
+            role: "system".to_string(),
+            content: format!(
+                "DawnDesk executed the requested plugin command(s). Use these results to answer the user. If you need to modify data, provide the next tool call as fenced JSON. Tool results:\n{}",
+                serde_json::to_string_pretty(&round_results)
+                    .map_err(|error| format!("Failed to serialize tool results: {error}"))?
+            ),
+        });
+    }
+
+    Ok(format_ai_response(
+        "I stopped after several plugin command rounds to avoid repeating commands.",
+        &executions,
+    ))
 }
 
 #[tauri::command]
@@ -47,16 +106,218 @@ pub fn ai_run_tool(
     name: String,
     arguments: Value,
     state: tauri::State<'_, AppState>,
+    app: tauri::AppHandle,
 ) -> Result<Value, String> {
     let config = current_config(&state)?;
+    execute_tool_call(
+        &config,
+        &state,
+        Some(&app),
+        &ToolCall {
+            plugin_id,
+            name,
+            arguments,
+        },
+    )
+}
 
-    if plugin_id == "notes" {
-        return run_notes_tool(&config, &name, arguments);
+#[derive(Clone, Debug, Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct ToolCall {
+    #[serde(alias = "plugin_id")]
+    plugin_id: String,
+    #[serde(alias = "tool")]
+    name: String,
+    #[serde(default, alias = "input")]
+    arguments: Value,
+}
+
+impl ToolCall {
+    fn is_mutation(&self) -> bool {
+        matches!(
+            self.name.as_str(),
+            "create_note" | "update_note" | "delete_note"
+        )
+    }
+}
+
+#[derive(Debug)]
+struct ToolExecution {
+    call: ToolCall,
+    result: Value,
+}
+
+fn execute_tool_call(
+    config: &crate::settings::config::AppConfig,
+    state: &tauri::State<'_, AppState>,
+    app: Option<&tauri::AppHandle>,
+    call: &ToolCall,
+) -> Result<Value, String> {
+    let result = if call.plugin_id == "notes" {
+        run_notes_tool(config, &call.name, call.arguments.clone())?
+    } else {
+        state
+            .sidecars
+            .run_tool(config, &call.plugin_id, &call.name, call.arguments.clone())?
+    };
+
+    if call.plugin_id == "notes" && call.is_mutation() {
+        if let Some(app) = app {
+            app.emit(
+                "plugin:notes:data-changed",
+                json!({
+                    "source": "ai",
+                    "command": call.name,
+                    "result": result.clone(),
+                }),
+            )
+            .map_err(|error| format!("Failed to notify notes plugin: {error}"))?;
+        }
     }
 
-    state
-        .sidecars
-        .run_tool(&config, &plugin_id, &name, arguments)
+    Ok(result)
+}
+
+fn extract_tool_calls(response: &str) -> Result<Vec<ToolCall>, String> {
+    let mut calls = Vec::new();
+    let mut rest = response;
+
+    while let Some(start) = rest.find("```") {
+        rest = &rest[start + 3..];
+        let Some(end) = rest.find("```") else {
+            break;
+        };
+
+        let block = &rest[..end];
+        rest = &rest[end + 3..];
+        let json_text = block
+            .strip_prefix("json")
+            .or_else(|| block.strip_prefix("JSON"))
+            .unwrap_or(block)
+            .trim();
+
+        if json_text.is_empty() {
+            continue;
+        }
+
+        let Ok(value) = serde_json::from_str::<Value>(json_text) else {
+            continue;
+        };
+
+        push_tool_calls_from_value(value, &mut calls)?;
+    }
+
+    if calls.is_empty() {
+        if let Ok(value) = serde_json::from_str::<Value>(response.trim()) {
+            push_tool_calls_from_value(value, &mut calls)?;
+        }
+    }
+
+    Ok(calls)
+}
+
+fn push_tool_calls_from_value(value: Value, calls: &mut Vec<ToolCall>) -> Result<(), String> {
+    if let Some(items) = value.as_array() {
+        for item in items {
+            push_tool_calls_from_value(item.clone(), calls)?;
+        }
+        return Ok(());
+    }
+
+    if value
+        .get("pluginId")
+        .or_else(|| value.get("plugin_id"))
+        .is_none()
+    {
+        return Ok(());
+    }
+
+    let call = serde_json::from_value::<ToolCall>(value)
+        .map_err(|error| format!("Invalid plugin tool call: {error}"))?;
+    calls.push(call);
+    Ok(())
+}
+
+fn format_ai_response(response: &str, executions: &[ToolExecution]) -> String {
+    let answer = strip_tool_blocks(response).trim().to_string();
+    let mut output = if answer.is_empty() && executions.is_empty() {
+        response.trim().to_string()
+    } else if answer.is_empty() {
+        "Done. I executed the requested plugin command.".to_string()
+    } else {
+        answer
+    };
+
+    if executions.is_empty() {
+        return output;
+    }
+
+    output.push_str("\n\n**Commands executed**");
+    for execution in executions {
+        output.push_str(&format!(
+            "\n- `{}.{}` with `{}`",
+            execution.call.plugin_id,
+            execution.call.name,
+            serde_json::to_string(&execution.call.arguments).unwrap_or_else(|_| "{}".to_string())
+        ));
+        output.push_str("\n```json\n");
+        output.push_str(
+            &serde_json::to_string_pretty(&execution.result).unwrap_or_else(|_| "null".to_string()),
+        );
+        output.push_str("\n```");
+    }
+
+    output
+}
+
+fn strip_tool_blocks(response: &str) -> String {
+    let mut output = String::with_capacity(response.len());
+    let mut rest = response;
+
+    while let Some(start) = rest.find("```") {
+        output.push_str(&rest[..start]);
+        let after_start = &rest[start + 3..];
+        let Some(end) = after_start.find("```") else {
+            output.push_str(&rest[start..]);
+            return output;
+        };
+
+        let block = &after_start[..end];
+        let json_text = block
+            .strip_prefix("json")
+            .or_else(|| block.strip_prefix("JSON"))
+            .unwrap_or(block)
+            .trim();
+
+        let is_tool_block = serde_json::from_str::<Value>(json_text)
+            .ok()
+            .map(|value| contains_tool_call(&value))
+            .unwrap_or(false);
+
+        if !is_tool_block {
+            output.push_str(&rest[start..start + 3 + end + 3]);
+        }
+
+        rest = &after_start[end + 3..];
+    }
+
+    output.push_str(rest);
+    output
+}
+
+fn contains_tool_call(value: &Value) -> bool {
+    if value
+        .get("pluginId")
+        .or_else(|| value.get("plugin_id"))
+        .is_some()
+    {
+        return true;
+    }
+
+    value
+        .as_array()
+        .map(|items| items.iter().any(contains_tool_call))
+        .unwrap_or(false)
 }
 
 fn run_notes_tool(

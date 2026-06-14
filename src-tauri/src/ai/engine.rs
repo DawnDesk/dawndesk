@@ -62,7 +62,7 @@ fn with_plugin_tool_context(
     enriched.push(ChatMessage {
         role: "system".to_string(),
         content: format!(
-            "You are DawnDesk's host AI. Installed plugins expose these tool definitions through plugin.manifest.json. Use them when they match the user's request, ask for missing required arguments, and format any proposed tool call as a fenced JSON block with pluginId, name, and arguments. Available plugin tools:\n{tools_json}"
+            "You are DawnDesk's host AI. Installed plugins expose these tool definitions through plugin.manifest.json. When a user's request matches a tool, call it by writing a fenced JSON block with this exact shape:\n```json\n{{\"pluginId\":\"notes\",\"name\":\"create_note\",\"arguments\":{{\"title\":\"...\",\"content\":\"...\",\"tags\":[\"...\"]}}}}\n```\nUse pluginId, name, and arguments exactly. You may emit multiple fenced JSON tool calls when needed. For editing or deleting an existing note, first use list/search tools if you need the note id, then use the returned id in the update/delete tool call. Ask for missing required arguments only when they cannot be inferred. DawnDesk will execute the command and show the result in chat. Available plugin tools:\n{tools_json}"
         ),
     });
     enriched.extend_from_slice(messages);

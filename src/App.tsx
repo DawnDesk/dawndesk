@@ -625,7 +625,7 @@ function App() {
 
   return (
     <main
-      className={`theme-${config.theme} grid h-screen overflow-hidden grid-cols-[216px_minmax(0,1fr)] bg-[radial-gradient(circle_at_50%_0,var(--dd-bg-glow),transparent_34%),var(--dd-bg-base)] text-[var(--dd-text-primary)] max-[900px]:grid-cols-1`}
+      className={`theme-${config.theme} grid h-screen overflow-hidden grid-cols-[216px_minmax(0,1fr)] bg-black text-[var(--dd-text-primary)] max-[900px]:grid-cols-1`}
     >
       <Sidebar
         activePluginId={activePluginId}
@@ -637,7 +637,7 @@ function App() {
         view={view}
       />
 
-      <section className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-[linear-gradient(180deg,var(--dd-bg-content),transparent_280px),var(--dd-bg-base)]">
+      <section className="flex min-h-0 min-w-0 flex-col overflow-hidden bg-black">
         {view === 'dashboard' && (
           <Dashboard
             aiTools={aiTools}
@@ -741,7 +741,7 @@ function ToastViewport({
 
         return (
           <article
-            className={`pointer-events-auto grid grid-cols-[auto_minmax(0,1fr)_auto] gap-[var(--dd-space-3)] rounded-[18px] border bg-[rgba(5,6,7,0.96)] p-[var(--dd-space-4)] text-[var(--dd-text-primary)] shadow-[0_18px_48px_rgba(0,0,0,0.48)] backdrop-blur ${toastStyles[toast.kind]}`}
+            className={`pointer-events-auto grid grid-cols-[auto_minmax(0,1fr)_auto] gap-[var(--dd-space-3)] rounded-[18px] border bg-black p-[var(--dd-space-4)] text-[var(--dd-text-primary)] shadow-[0_18px_48px_rgba(0,0,0,0.48)] ${toastStyles[toast.kind]}`}
             key={toast.id}
           >
             <span className="mt-0.5 grid size-8 place-items-center rounded-full border border-[rgba(250,204,21,0.28)] bg-[rgba(250,204,21,0.1)]">

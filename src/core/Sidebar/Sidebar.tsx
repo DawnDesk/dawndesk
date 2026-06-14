@@ -32,7 +32,7 @@ const navItems: Array<{ icon: LucideIcon; label: string; view: View; clearsPlugi
 const sidebarButton =
   'relative flex min-h-9 w-full items-center gap-[var(--dd-space-3)] rounded-[var(--dd-radius-md)] px-[var(--dd-space-3)] py-[var(--dd-space-2)] text-left text-[var(--dd-text-primary)] transition-[background,color] duration-150 hover:bg-[rgba(255,255,255,0.035)]'
 const activeSidebarButton =
-  'bg-[linear-gradient(90deg,rgba(86,65,24,0.88),rgba(58,44,19,0.88))] shadow-[inset_2px_0_0_var(--dd-accent)]'
+  'bg-[#0b0b0b] shadow-[inset_2px_0_0_var(--dd-accent)]'
 const sidebarIcon =
   'grid w-[17px] place-items-center text-[var(--dd-text-primary)] transition-colors duration-150'
 const activeSidebarIcon = 'text-[var(--dd-accent)]'
@@ -49,7 +49,7 @@ export function Sidebar({
 
   return (
     <aside
-      className="flex min-h-0 flex-col overflow-y-auto border-r border-[rgba(148,163,184,0.12)] bg-[#03080c] px-[var(--dd-space-3)] pb-[var(--dd-space-4)] pt-[var(--dd-space-4)] max-[900px]:max-h-72 max-[900px]:border-b max-[900px]:border-r-0"
+      className="flex min-h-0 flex-col overflow-y-auto border-r border-[rgba(148,163,184,0.12)] bg-black px-[var(--dd-space-3)] pb-[var(--dd-space-4)] pt-[var(--dd-space-4)] max-[900px]:max-h-72 max-[900px]:border-b max-[900px]:border-r-0"
       aria-label="DawnDesk navigation"
     >
       <div className="flex min-h-10 items-center gap-[var(--dd-space-2)] border-b border-[rgba(148,163,184,0.08)] pb-[var(--dd-space-3)]">
@@ -95,7 +95,7 @@ export function Sidebar({
           className="relative grid min-h-[58px] grid-cols-[auto_minmax(0,1fr)] items-center gap-[var(--dd-space-2)] rounded-[var(--dd-radius-md)] border border-[rgba(148,163,184,0.12)] bg-[rgba(255,255,255,0.02)] px-[var(--dd-space-3)] py-[var(--dd-space-2)]"
           aria-label="Account"
         >
-          <span className="grid size-9 place-items-center overflow-hidden rounded-full bg-[linear-gradient(180deg,#f9fafb,#64748b)] text-[var(--dd-accent-contrast)]">
+          <span className="grid size-9 place-items-center overflow-hidden rounded-full bg-[#111111] text-[var(--dd-text-primary)]">
             {avatarUrl ? (
               <img alt="" className="size-full object-cover" src={avatarUrl} />
             ) : (

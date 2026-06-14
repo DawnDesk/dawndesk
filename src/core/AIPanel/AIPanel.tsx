@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type MutableRefObject } from 'react'
 import {
   Check,
+  ChevronDown,
   Code2,
   Copy,
   FileImage,
@@ -10,6 +11,7 @@ import {
   Search,
   Send,
   Smile,
+  TerminalSquare,
   Trash2,
   User,
   X,
@@ -45,7 +47,7 @@ type HistoryItem = {
 }
 
 const panel =
-  'border border-[rgba(148,163,184,0.16)] bg-[linear-gradient(180deg,rgba(255,255,255,0.035),rgba(255,255,255,0.012)),rgba(8,14,20,0.82)] shadow-[0_20px_60px_rgba(0,0,0,0.28)] backdrop-blur-xl'
+  'border border-[rgba(148,163,184,0.16)] bg-black shadow-[0_20px_60px_rgba(0,0,0,0.28)]'
 const iconButton =
   'grid size-9 place-items-center rounded-[var(--dd-radius-md)] text-[var(--dd-text-secondary)] transition-[background,color] hover:bg-[rgba(255,255,255,0.06)] hover:text-[var(--dd-text-primary)] disabled:cursor-not-allowed disabled:opacity-60'
 
@@ -117,8 +119,7 @@ export function AIPanel({
   }, [isGenerating, visibleMessages])
 
   return (
-    <section className="relative min-h-0 flex-1 overflow-hidden bg-[#03080c] px-[var(--dd-space-7)] pb-[var(--dd-space-5)] pt-[var(--dd-space-6)] max-[900px]:overflow-y-auto max-[900px]:px-[var(--dd-space-4)]">
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_28%_2%,rgba(250,204,21,0.08),transparent_24%),radial-gradient(circle_at_86%_10%,rgba(59,130,246,0.08),transparent_22%)]" />
+    <section className="relative min-h-0 flex-1 overflow-hidden bg-black px-[var(--dd-space-7)] pb-[var(--dd-space-5)] pt-[var(--dd-space-6)] max-[900px]:overflow-y-auto max-[900px]:px-[var(--dd-space-4)]">
 
       <div className="relative mx-auto grid h-full min-h-0 w-full max-w-[1320px] grid-rows-[auto_minmax(0,1fr)_auto] gap-[var(--dd-space-5)]">
         <header className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-[var(--dd-space-4)]">
@@ -169,7 +170,7 @@ export function AIPanel({
                         <div
                           className={`group grid grid-cols-[minmax(0,1fr)_auto] items-center gap-[var(--dd-space-1)] rounded-[var(--dd-radius-md)] border border-transparent ${
                             isActive
-                              ? 'bg-[linear-gradient(90deg,rgba(250,204,21,0.22),rgba(250,204,21,0.09))] shadow-[inset_3px_0_0_var(--dd-accent)]'
+                              ? 'bg-[#0b0b0b] shadow-[inset_3px_0_0_var(--dd-accent)]'
                               : 'hover:bg-[rgba(255,255,255,0.035)]'
                           }`}
                           key={item.id}
@@ -284,8 +285,8 @@ function MessageBubble({
         <span
           className={`grid size-10 place-items-center overflow-hidden rounded-full ${
             isUser
-              ? 'bg-[linear-gradient(180deg,#f8fafc,#64748b)] text-[var(--dd-accent-contrast)]'
-              : 'bg-[linear-gradient(180deg,#f8fafc,#b45309)] text-[#5f3d05] shadow-[0_0_0_5px_rgba(250,204,21,0.12)]'
+              ? 'bg-[#111111] text-[var(--dd-text-primary)]'
+              : 'bg-[#111111] text-[var(--dd-accent)] shadow-[0_0_0_5px_rgba(250,204,21,0.12)]'
           }`}
           aria-hidden="true"
         >
@@ -444,6 +445,20 @@ function MessageContent({ content, isStreaming }: { content: string; isStreaming
           return <CodeBlock block={block} key={index} />
         }
 
+        if (block.type === 'commandLog') {
+          return <CommandLog block={block} key={index} />
+        }
+
+        if (block.type === 'heading') {
+          const HeadingTag = block.level === 2 ? 'h2' : block.level === 3 ? 'h3' : 'h4'
+
+          return (
+            <HeadingTag className="m-0 text-[1.02rem] font-extrabold leading-7 text-[var(--dd-text-primary)]" key={index}>
+              {renderInlineMarkdown(block.content)}
+            </HeadingTag>
+          )
+        }
+
         if (block.type === 'list') {
           return (
             <ul className="m-0 grid gap-[var(--dd-space-2)] pl-[var(--dd-space-5)]" key={index}>
@@ -452,6 +467,10 @@ function MessageContent({ content, isStreaming }: { content: string; isStreaming
               ))}
             </ul>
           )
+        }
+
+        if (block.type === 'table') {
+          return <MarkdownTable block={block} key={index} />
         }
 
         return (
@@ -472,8 +491,17 @@ function MessageContent({ content, isStreaming }: { content: string; isStreaming
 
 type MessageBlock =
   | { type: 'code'; language: string; content: string }
+  | { type: 'commandLog'; commands: CommandExecution[] }
+  | { type: 'heading'; level: 2 | 3 | 4; content: string }
   | { type: 'list'; items: string[] }
+  | { type: 'table'; headers: string[]; rows: string[][] }
   | { type: 'paragraph'; content: string }
+
+type CommandExecution = {
+  label: string
+  arguments: string
+  result: string
+}
 
 function parseMessageBlocks(content: string): MessageBlock[] {
   const blocks: MessageBlock[] = []
@@ -503,7 +531,8 @@ function parseMessageBlocks(content: string): MessageBlock[] {
     codeLanguage = ''
   }
 
-  for (const line of lines) {
+  for (let index = 0; index < lines.length; index += 1) {
+    const line = lines[index]
     const trimmed = line.trim()
 
     if (codeLanguage || codeLines.length > 0) {
@@ -512,6 +541,28 @@ function parseMessageBlocks(content: string): MessageBlock[] {
       } else {
         codeLines.push(line)
       }
+      continue
+    }
+
+    if (isCommandsHeading(trimmed)) {
+      flushParagraph()
+      flushList()
+
+      const parsed = parseCommandLog(lines, index)
+      if (parsed.commands.length > 0) {
+        blocks.push({ type: 'commandLog', commands: parsed.commands })
+        index = parsed.nextIndex - 1
+        continue
+      }
+    }
+
+    if (isTableStart(lines, index)) {
+      flushParagraph()
+      flushList()
+
+      const parsed = parseTable(lines, index)
+      blocks.push(parsed.block)
+      index = parsed.nextIndex - 1
       continue
     }
 
@@ -525,6 +576,18 @@ function parseMessageBlocks(content: string): MessageBlock[] {
       flushParagraph()
       flushList()
       codeLanguage = trimmed.slice(3).trim() || 'text'
+      continue
+    }
+
+    const heading = trimmed.match(/^(#{2,4})\s+(.+)$/)
+    if (heading) {
+      flushParagraph()
+      flushList()
+      blocks.push({
+        type: 'heading',
+        level: Math.min(heading[1].length, 4) as 2 | 3 | 4,
+        content: heading[2],
+      })
       continue
     }
 
@@ -546,7 +609,162 @@ function parseMessageBlocks(content: string): MessageBlock[] {
   return blocks.length > 0 ? blocks : [{ type: 'paragraph', content }]
 }
 
-function CodeBlock({ block }: { block: Extract<MessageBlock, { type: 'code' }> }) {
+function isCommandsHeading(value: string) {
+  return value.replaceAll('*', '').trim().toLowerCase() === 'commands executed'
+}
+
+function parseCommandLog(lines: string[], startIndex: number) {
+  const commands: CommandExecution[] = []
+  let index = startIndex + 1
+
+  while (index < lines.length) {
+    const line = lines[index].trim()
+
+    if (!line) {
+      index += 1
+      continue
+    }
+
+    const command = line.match(/^-\s+`([^`]+)`(?:\s+with\s+`([^`]+)`)?.*$/)
+    if (!command) break
+
+    const label = command[1]
+    const args = command[2] ?? '{}'
+    let result = ''
+    index += 1
+
+    if (lines[index]?.trim().startsWith('```')) {
+      index += 1
+      const resultLines: string[] = []
+
+      while (index < lines.length && !lines[index].trim().startsWith('```')) {
+        resultLines.push(lines[index])
+        index += 1
+      }
+
+      result = resultLines.join('\n').trim()
+      if (lines[index]?.trim().startsWith('```')) index += 1
+    }
+
+    commands.push({ label, arguments: formatJson(args), result: formatJson(result || 'null') })
+  }
+
+  return { commands, nextIndex: index }
+}
+
+function isTableStart(lines: string[], index: number) {
+  const header = lines[index]?.trim()
+  const separator = lines[index + 1]?.trim()
+
+  return Boolean(
+    header?.includes('|') &&
+      separator?.includes('|') &&
+      /^\|?\s*:?-{3,}:?\s*(\|\s*:?-{3,}:?\s*)+\|?$/.test(separator),
+  )
+}
+
+function parseTable(lines: string[], startIndex: number) {
+  const headers = splitTableRow(lines[startIndex])
+  const rows: string[][] = []
+  let index = startIndex + 2
+
+  while (index < lines.length && lines[index].trim().includes('|')) {
+    const row = splitTableRow(lines[index])
+    if (row.length === headers.length) rows.push(row)
+    index += 1
+  }
+
+  return {
+    block: { type: 'table', headers, rows } satisfies Extract<MessageBlock, { type: 'table' }>,
+    nextIndex: index,
+  }
+}
+
+function splitTableRow(value: string) {
+  return value
+    .trim()
+    .replace(/^\|/, '')
+    .replace(/\|$/, '')
+    .split('|')
+    .map((cell) => cell.trim())
+}
+
+function formatJson(value: string) {
+  try {
+    return JSON.stringify(JSON.parse(value), null, 2)
+  } catch {
+    return value
+  }
+}
+
+function CommandLog({ block }: { block: Extract<MessageBlock, { type: 'commandLog' }> }) {
+  return (
+    <section className="overflow-hidden rounded-[var(--dd-radius-md)] border border-[rgba(250,204,21,0.2)] bg-[rgba(250,204,21,0.045)]">
+      <div className="flex items-center gap-[var(--dd-space-2)] border-b border-[rgba(250,204,21,0.16)] px-[var(--dd-space-4)] py-[var(--dd-space-3)] text-[0.92rem] font-extrabold text-[var(--dd-text-primary)]">
+        <TerminalSquare size={17} className="text-[var(--dd-accent)]" aria-hidden="true" />
+        Commands executed
+        <span className="ml-auto rounded-full border border-[rgba(250,204,21,0.18)] px-[var(--dd-space-2)] py-[2px] text-[0.75rem] font-bold text-[var(--dd-text-muted)]">
+          {block.commands.length}
+        </span>
+      </div>
+      <div className="grid gap-[var(--dd-space-2)] p-[var(--dd-space-3)]">
+        {block.commands.map((command, index) => (
+          <details
+            className="group rounded-[var(--dd-radius-sm)] border border-[rgba(148,163,184,0.16)] bg-[rgba(2,8,12,0.72)]"
+            key={`${command.label}-${index}`}
+          >
+            <summary className="grid cursor-pointer grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-[var(--dd-space-2)] px-[var(--dd-space-3)] py-[var(--dd-space-2)] text-[0.9rem] text-[var(--dd-text-primary)]">
+              <TerminalSquare size={15} className="text-[var(--dd-accent)]" aria-hidden="true" />
+              <span className="min-w-0 truncate font-[var(--dd-font-mono)]">{command.label}</span>
+              <ChevronDown size={15} className="text-[var(--dd-text-muted)] transition-transform group-open:rotate-180" aria-hidden="true" />
+            </summary>
+            <div className="grid gap-[var(--dd-space-3)] border-t border-[rgba(148,163,184,0.12)] p-[var(--dd-space-3)]">
+              <CodeBlock block={{ type: 'code', language: 'arguments', content: command.arguments }} compact />
+              <CodeBlock block={{ type: 'code', language: 'result', content: command.result }} compact />
+            </div>
+          </details>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function MarkdownTable({ block }: { block: Extract<MessageBlock, { type: 'table' }> }) {
+  return (
+    <div className="overflow-x-auto rounded-[var(--dd-radius-md)] border border-[rgba(148,163,184,0.18)]">
+      <table className="w-full min-w-[520px] border-collapse text-left text-[0.92rem]">
+        <thead className="bg-[rgba(255,255,255,0.045)] text-[var(--dd-text-primary)]">
+          <tr>
+            {block.headers.map((header, index) => (
+              <th className="border-b border-[rgba(148,163,184,0.16)] px-[var(--dd-space-3)] py-[var(--dd-space-2)] font-extrabold" key={`${header}-${index}`}>
+                {renderInlineMarkdown(header)}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {block.rows.map((row, rowIndex) => (
+            <tr className="odd:bg-[rgba(255,255,255,0.018)]" key={rowIndex}>
+              {row.map((cell, cellIndex) => (
+                <td className="border-b border-[rgba(148,163,184,0.1)] px-[var(--dd-space-3)] py-[var(--dd-space-2)] align-top" key={`${rowIndex}-${cellIndex}`}>
+                  {renderInlineMarkdown(cell)}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+function CodeBlock({
+  block,
+  compact = false,
+}: {
+  block: Extract<MessageBlock, { type: 'code' }>
+  compact?: boolean
+}) {
   const [copied, setCopied] = useState(false)
 
   async function copyCode() {
@@ -561,7 +779,7 @@ function CodeBlock({ block }: { block: Extract<MessageBlock, { type: 'code' }> }
 
   return (
     <figure className="m-0 overflow-hidden rounded-[var(--dd-radius-md)] border border-[rgba(148,163,184,0.18)] bg-[#02080c] shadow-[0_18px_40px_rgba(0,0,0,0.28)]">
-      <figcaption className="flex min-h-11 items-center justify-between gap-[var(--dd-space-3)] border-b border-[rgba(148,163,184,0.12)] bg-[rgba(255,255,255,0.035)] px-[var(--dd-space-4)] text-[0.9rem] text-[var(--dd-text-secondary)]">
+      <figcaption className={`${compact ? 'min-h-9 px-[var(--dd-space-3)]' : 'min-h-11 px-[var(--dd-space-4)]'} flex items-center justify-between gap-[var(--dd-space-3)] border-b border-[rgba(148,163,184,0.12)] bg-[rgba(255,255,255,0.035)] text-[0.9rem] text-[var(--dd-text-secondary)]`}>
         <span>{block.language}</span>
         <button
           className="inline-flex items-center gap-[var(--dd-space-2)] text-[0.9rem] text-[var(--dd-text-primary)] transition-colors hover:text-[var(--dd-accent)]"
@@ -572,7 +790,7 @@ function CodeBlock({ block }: { block: Extract<MessageBlock, { type: 'code' }> }
           {copied ? 'Copied' : 'Copy'}
         </button>
       </figcaption>
-      <pre className="m-0 max-h-[360px] overflow-auto p-[var(--dd-space-5)] text-[0.92rem] leading-8 text-[var(--dd-text-secondary)]">
+      <pre className={`${compact ? 'max-h-[220px] p-[var(--dd-space-3)] text-[0.84rem] leading-6' : 'max-h-[360px] p-[var(--dd-space-5)] text-[0.92rem] leading-8'} m-0 overflow-auto text-[var(--dd-text-secondary)]`}>
         <code className="font-[var(--dd-font-mono)]">{block.content}</code>
       </pre>
     </figure>

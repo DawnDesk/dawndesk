@@ -198,7 +198,7 @@ export function Settings({ config, saveConfig, showToast }: SettingsProps) {
           )
         })}
       </aside>
-      <section className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-[var(--dd-space-4)] rounded-[var(--dd-radius-md)] border border-[var(--dd-border)] bg-[linear-gradient(180deg,var(--dd-panel-sheen),transparent),var(--dd-bg-surface)] p-[var(--dd-space-5)] shadow-[var(--dd-shadow-md)] animate-[panelIn_260ms_ease_both]">
+      <section className="grid grid-cols-[repeat(auto-fill,minmax(260px,1fr))] gap-[var(--dd-space-4)] rounded-[var(--dd-radius-md)] border border-[var(--dd-border)] bg-black p-[var(--dd-space-5)] shadow-[var(--dd-shadow-md)] animate-[panelIn_260ms_ease_both]">
         <label className="col-span-full grid gap-[var(--dd-space-2)]">
           <span className="font-bold text-[var(--dd-text-secondary)]">Data Root Directory</span>
           <input
