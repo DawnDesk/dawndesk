@@ -454,9 +454,7 @@ function QuickAccessCard({ plugin, onClick }: { plugin: PluginMeta; onClick: () 
         <strong className="block truncate text-[1rem] text-[var(--dd-text-primary)]">
           {plugin.name}
         </strong>
-        <span className="mt-[var(--dd-space-2)] block max-w-32 text-[0.84rem] leading-5 text-[var(--dd-text-secondary)]">
-          {plugin.description}
-        </span>
+    
       </span>
       <ChevronRight className="text-[var(--dd-text-muted)]" size={18} aria-hidden="true" />
     </button>
