@@ -424,32 +424,6 @@ function App() {
     }
   }
 
-  function saveCurrentChat() {
-    const now = new Date().toISOString()
-    const title = chatTitle(messages)
-
-    if (activeChatId) {
-      setSavedChats((current) =>
-        current.map((chat) =>
-          chat.id === activeChatId ? { ...chat, title, updatedAt: now, messages } : chat,
-        ),
-      )
-      setStatus(`Saved ${title}`, 'success')
-      return
-    }
-
-    const chat: SavedChat = {
-      id: crypto.randomUUID(),
-      title,
-      updatedAt: now,
-      messages,
-    }
-
-    setSavedChats((current) => [chat, ...current])
-    setActiveChatId(chat.id)
-    setStatus(`Saved ${title}`, 'success')
-  }
-
   function openSavedChat(chat: SavedChat) {
     setMessages(chat.messages)
     setActiveChatId(chat.id)

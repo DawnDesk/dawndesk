@@ -508,8 +508,18 @@ fn plugin_ipc_shim(plugin_id: &str) -> String {
 (() => {{
   const pluginId = {plugin_id:?};
   const scopedCommands = new Set(['plugin_get_data', 'plugin_set_data', 'plugin_delete_data', 'plugin_info']);
+  function inheritTauriApi() {{
+    if (window.__TAURI__) return true;
+    try {{
+      if (window.parent && window.parent.__TAURI__) {{
+        window.__TAURI__ = window.parent.__TAURI__;
+        return true;
+      }}
+    }} catch (_) {{}}
+    return false;
+  }}
   function patch() {{
-    if (!window.__TAURI__ && window.parent && window.parent.__TAURI__) window.__TAURI__ = window.parent.__TAURI__;
+    inheritTauriApi();
     const core = window.__TAURI__ && window.__TAURI__.core;
     if (!core || core.__dawndeskPluginScoped) return Boolean(core);
     const invoke = core.invoke.bind(core);

@@ -27,10 +27,7 @@ pub fn ai_chat(
 }
 
 #[tauri::command]
-pub fn ai_call(
-    prompt: String,
-    state: tauri::State<'_, AppState>,
-) -> Result<String, String> {
+pub fn ai_call(prompt: String, state: tauri::State<'_, AppState>) -> Result<String, String> {
     let config = current_config(&state)?;
     let tools = collect_tools(&config)?;
     chat(
@@ -73,7 +70,8 @@ fn run_notes_tool(
 
     match name {
         "create_note" => {
-            let title = string_arg(&arguments, "title").unwrap_or_else(|| "Untitled note".to_string());
+            let title =
+                string_arg(&arguments, "title").unwrap_or_else(|| "Untitled note".to_string());
             let content = string_arg(&arguments, "content").unwrap_or_default();
             let tags = string_array_arg(&arguments, "tags");
             let note = json!({
@@ -147,7 +145,9 @@ fn run_notes_tool(
                 .unwrap_or(false);
             let list: Vec<Value> = notes
                 .into_iter()
-                .filter(|note| !pinned_only || note.get("pinned").and_then(Value::as_bool).unwrap_or(false))
+                .filter(|note| {
+                    !pinned_only || note.get("pinned").and_then(Value::as_bool).unwrap_or(false)
+                })
                 .take(limit)
                 .collect();
 
@@ -163,21 +163,21 @@ fn run_notes_tool(
             let matches: Vec<Value> = notes
                 .into_iter()
                 .filter(|note| {
-                    ["title", "content"]
-                        .iter()
-                        .any(|key| note.get(*key).and_then(Value::as_str).unwrap_or("").to_lowercase().contains(&query))
-                        || note
-                            .get("tags")
-                            .and_then(Value::as_array)
-                            .map(|tags| {
-                                tags.iter().any(|tag| {
-                                    tag.as_str()
-                                        .unwrap_or("")
-                                        .to_lowercase()
-                                        .contains(&query)
-                                })
+                    ["title", "content"].iter().any(|key| {
+                        note.get(*key)
+                            .and_then(Value::as_str)
+                            .unwrap_or("")
+                            .to_lowercase()
+                            .contains(&query)
+                    }) || note
+                        .get("tags")
+                        .and_then(Value::as_array)
+                        .map(|tags| {
+                            tags.iter().any(|tag| {
+                                tag.as_str().unwrap_or("").to_lowercase().contains(&query)
                             })
-                            .unwrap_or(false)
+                        })
+                        .unwrap_or(false)
                 })
                 .take(limit)
                 .collect();
@@ -237,7 +237,8 @@ fn write_plugin_array(
     store.insert(key.to_string(), json!(values));
     let content = serde_json::to_string_pretty(&json!(store))
         .map_err(|error| format!("Failed to serialize plugin data: {error}"))?;
-    std::fs::write(store_path, content).map_err(|error| format!("Failed to write plugin data: {error}"))
+    std::fs::write(store_path, content)
+        .map_err(|error| format!("Failed to write plugin data: {error}"))
 }
 
 fn required_string_arg(arguments: &Value, key: &str) -> Result<String, String> {

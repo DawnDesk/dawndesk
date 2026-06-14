@@ -66,12 +66,20 @@ impl SidecarManager {
 
         let mut child = Command::new(&sidecar_path)
             .env("DAWNDESK_PLUGIN_ID", plugin_id)
-            .env("DAWNDESK_PLUGIN_DATA_DIR", plugin_dir.to_string_lossy().to_string())
+            .env(
+                "DAWNDESK_PLUGIN_DATA_DIR",
+                plugin_dir.to_string_lossy().to_string(),
+            )
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
             .spawn()
-            .map_err(|error| format!("Failed to start sidecar '{}': {error}", sidecar_path.display()))?;
+            .map_err(|error| {
+                format!(
+                    "Failed to start sidecar '{}': {error}",
+                    sidecar_path.display()
+                )
+            })?;
 
         if let Some(stdin) = child.stdin.as_mut() {
             writeln!(stdin, "{payload}")
@@ -121,8 +129,16 @@ fn resolve_sidecar_binary(plugin_dir: &Path, binary: &str) -> Option<PathBuf> {
         plugin_dir.join(&executable),
         plugin_dir.join("bin").join(&executable),
         plugin_dir.join("sidecars").join(&executable),
-        plugin_dir.join("src-tauri").join("target").join("release").join(&executable),
-        plugin_dir.join("src-tauri").join("target").join("debug").join(&executable),
+        plugin_dir
+            .join("src-tauri")
+            .join("target")
+            .join("release")
+            .join(&executable),
+        plugin_dir
+            .join("src-tauri")
+            .join("target")
+            .join("debug")
+            .join(&executable),
     ];
 
     candidates.into_iter().find(|path| path.exists())

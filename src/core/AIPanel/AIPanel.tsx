@@ -49,7 +49,7 @@ const panel =
 const iconButton =
   'grid size-9 place-items-center rounded-[var(--dd-radius-md)] text-[var(--dd-text-secondary)] transition-[background,color] hover:bg-[rgba(255,255,255,0.06)] hover:text-[var(--dd-text-primary)] disabled:cursor-not-allowed disabled:opacity-60'
 
-const sampleMessages: ChatMessage[] = [
+export const sampleMessages: ChatMessage[] = [
   {
     id: 'sample-user',
     role: 'user',
@@ -63,7 +63,7 @@ const sampleMessages: ChatMessage[] = [
   },
 ]
 
-const fallbackHistory: HistoryItem[] = [
+export const fallbackHistory: HistoryItem[] = [
   { id: 'today-1', group: 'Today', title: 'Help me optimize this code', time: '2:30 PM' },
   { id: 'today-2', group: 'Today', title: 'Summarize this document', time: '11:15 AM' },
   { id: 'today-3', group: 'Today', title: 'Ideas for content calendar', time: '10:02 AM' },
